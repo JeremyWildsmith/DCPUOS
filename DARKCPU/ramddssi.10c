@@ -1,0 +1,121 @@
+;;
+;\file rsfs-10c.c
+;\anchor Ram DDSSI Storage Driver
+;\brief This module implements a 
+;\details This module implements the Really Simple File System specification, \ref SpecReallySimpleFileSystem using the \ref DDSFSI interface. 
+;\author Jeremy (0x10cforums.com)
+;\version 1.0
+;\date Dec, 22, 2012
+;
+;;
+
+#define RAMDDSSI_VOLUMESIZE 462 ;IN WORDS
+
+;This header is hacked, as this image doesn't actually go through the PE loader, it is loaded with the kernel and then added
+;to the executable chain
+:ramddssi_header
+:ramddssi_header_signature
+	DAT 0x10C
+
+:ramddssi_header_next
+	DAT	0xFFFF
+	
+:ramddssi_header_name
+	DAT "ramddssi", 0, 0
+	
+:ramddssi_header_rva_ep
+	DAT 0
+	
+:ramddssi_header_rva_import
+	DAT 0
+	
+:ramddssi_header_rva_export
+	DAT ramddssi_header_export_table - ramddssi_header
+	
+:ramddssi_header_rva_relocations
+	DAT 0
+	
+:ramddssi_header_imageSize
+	DAT 0
+	
+:ramddssi_header_specHash
+	DAT 0x0000 ;Not required, since this driver is only used by the kernel once to mount the initrd
+	
+:ramddssi_header_export_table
+	DAT ramddssi_getFlags
+	DAT ramddssi_getSectorSize
+	DAT ramddssi_getVolumeSize
+	DAT ramddssi_read
+	DAT ramddssi_write
+	DAT 0xFFFF
+
+ramddssi_init:
+		_push RAMDDSSI_VOLUMESIZE
+		_push ramddssi_initrd
+		call memory_reserve
+		add sp, 2
+		
+		ret
+	
+ramddssi_deinit:
+		_push RAMDDSSI_VOLUMESIZE
+		_push ramddssi_initrd
+		call memory_free
+		add sp, 2
+		ret
+
+ramddssi_getFlags:
+		set a, 0
+		ret
+	
+ramddssi_getSectorSize:
+		set a, 1
+		ret
+	
+ramddssi_getVolumeSize:
+		set a, 0xFFFF
+		ret
+
+;;
+;\brief Reads a specified region of data from ram storage volume.
+;\note Uses the cdecl calling convention \ref cdecl
+;\param wSectorPos Position to start read in units of sector size
+;\param wOffset Offset in words from the origin of wSectorPos
+;\param pDest A pointer to the destination of the read data
+;\param wSize Size of the buffer in words.
+;;
+ramddssi_read:
+		_sfBegin(0)
+
+		_push i
+		_push j
+		
+		_sfArg(i, 0)
+		_sfArgAdd(i, 1)
+		
+		_sfArg(j, 2)
+		
+		_sfArg(c, 3)
+		add c, i
+		
+		;Word copy
+		ramddssi_read_copyLoop:
+			ife c, i
+				jmp ramddssi_read_end
+				
+			sti [j], [ramddssi_initrd + i]
+			
+			jmp ramddssi_read_copyLoop
+				
+	ramddssi_read_end:
+		_pop j
+		_pop i
+		_sfEnd()
+		ret
+
+;;
+;\attention Performs no function. Implemented to comply with \ref DDSSI, though this is a read-only storage device unconditionally.
+;;
+ramddssi_write:
+	ret
+	

@@ -1,0 +1,174 @@
+;;
+;\file mutex-10c.c
+;\anchor MutexManager
+;\brief Handles allocation, locking, releasing and freeing of system synchronization mutex objects.
+;\details This module contains several routines for mutating mutex synchronization objects.
+;\author Jeremy (0x10cforums.com)
+;\version 1.0
+;\date Dec, 18, 2012
+;
+;\page MutexManager Mutexes
+;Mutexes \ref MutexManager
+;====================
+;
+;Relavent Code Modules:
+;----------------------
+;\ref ThreadingManager
+;\ref MutexManager
+;
+;A Brief on The Concept of Mutexes
+;--------------------------------------------------------
+;
+;When multiple threads are running along-side one another, it is important to assure that these threads do not access the same resource at the same point in time. As doing so may result in either thread mutating\accessing a corrupted resource.
+;To avoid the conflict of multiple threads accessing a single resource at a time, mutex synchronization objects are used. A mutex synchronization object has either one of two states. It is either locked, or unlocked.
+;
+;A mutex can be requested to be locked via one of the locking routines. A mutex can only be locked if it is in its unlocked state. If a thread attempts to lock a mutex which is already locked, the thread will idle until the mutex is released by whichever thread was responsible for locking it. Once
+;the mutex is released, the idling thread will be able to lock the mutex and resume on executing.
+;
+;Mutexes are very useful for ensuring that a given thread has exclusive access to a resource, however, be very careful when using mutexes as they may cause bugs\deadlocks in your program that are very difficult to locate and reproduce.
+;
+;\note In Dark CPU, when a thread 'idles' it actually just passes control over to the next thread in the queue to avoid wasting CPU time.
+;
+;;
+
+;;
+;\details Defines the value given to an invalid mutex.
+;;
+#define MUTEX_INVALIDMUTEX		0xFFFF
+
+;;
+;\details Defines number of entries in the mutex allocation and mutex state tables
+;;
+#define MUTEX_TABLE_ENTRIES 	96
+
+;;
+;\details A bitmap that stores which mutexes are allocate and which mutexes are free. Each entry in this bitmap coin-sides with an ehtry in the mutex state table.
+;;
+:mutex_mutexAllocationTable
+	DAT 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000
+
+;;
+;\details A bitmap that stores the state of allocated mutexes. Whether or no the mutex is locked or free.
+;;
+:mutex_mutexStateTable
+	DAT 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000
+
+;;
+;\brief Creates a mutex object. Mutex objects, when created, are in an unlocked state.
+;\note Uses the cdecl calling convention \ref cdecl
+;\return Returns the mutex object index allocated for this mutex
+;;
+mutex_create:
+		_push mutex_mutexAllocationTable
+		_push 0
+	
+		mutex_create_findMutexLoop:
+			ife [sp], MUTEX_TABLE_ENTRIES
+				jmp mutex_create_notFound
+			
+			call bitmap_get
+			
+			ife a, 0
+				jmp mutex_create_found
+			
+			add [sp], 1
+			
+			jmp mutex_create_findMutexLoop
+	
+	mutex_create_found:
+		call bitmap_set
+		set a, [sp]
+		add sp, 2
+		ret
+		
+	mutex_create_notFound:
+		set a, MUTEX_INVALIDMUTEX
+		add sp, 2
+		ret
+
+;;
+;\brief Destroys (deallocates) a mutex object of a given index.
+;\note Uses the cdecl calling convention \ref cdecl
+;\param Index of the mutex object to be destroyed
+;;
+mutex_destroy:
+	_push mutex_mutexAllocationTable
+	_push [SP+1]
+	call bitmap_clear
+	add sp, 2
+	ret
+
+;;
+;\brief Attempts to lock a mutex object of a given index. This routine will block execution until a lock is achieved via this thread on the mutex.
+;\note Uses the cdecl calling convention \ref cdecl
+;\param Index of the mutex object to be locked
+;;
+mutex_lock:
+		_sfBegin(0)
+		_push mutex_mutexStateTable
+		_sfArg(push, 0)
+		
+	mutex_lock_attemptLock:
+		call threading_lock
+		call bitmap_get
+		
+		ifn a, 0
+			jmp mutex_lock_failedLock
+		
+		call bitmap_set
+		
+		call threading_free
+		
+		add sp, 2
+		_sfEnd()
+		ret
+		
+	mutex_lock_failedLock:
+		_threading_endCycle()
+		jmp mutex_lock_attemptLock
+	
+	
+;;
+;\brief Waits for a mutex object of a given index to be placed in an unlocked state. This routine will block execution until the mutex is placed into an unlocked state.
+;\note Uses the cdecl calling convention \ref cdecl
+;\param Index of the mutex object to be waited upon
+;;
+mutex_waitForMutex:
+		_sfBegin(0)
+		_push mutex_mutexStateTable
+		_sfArg(push, 0)
+		
+	mutex_waitForMutex_getState:
+		call threading_lock
+		call bitmap_get
+		
+		ifn a, 0
+			jmp mutex_waitForMutex_stateLock
+		
+		call threading_free
+		add sp, 2
+		_sfEnd()
+		ret
+		
+	mutex_waitForMutex_stateLock:
+		_threading_endCycle()
+		jmp mutex_waitForMutex_getState
+
+;;
+;\brief Places a mutex object of a given index into an unlocked state.
+;\note Uses the cdecl calling convention \ref cdecl
+;\param Index of the mutex object to be released
+;;
+mutex_release:
+	_sfBegin(0)
+	_push mutex_mutexStateTable
+	_sfArg(push, 0)
+	
+	call threading_lock
+	call bitmap_clear
+	call threading_free
+	
+	add sp, 2
+	_sfEnd()
+	ret
+	

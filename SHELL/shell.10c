@@ -1,0 +1,230 @@
+#define SHELLINSTANCE_OFFSET_CUR_WRITEORIGIN 	0
+#define SHELLINSTANCE_OFFSET_CUR_INPUTCURSOR	1
+#define SHELLINSTANCE_OFFSET_INPUTBUFFER		2
+#define SHELLINSTANCE_OFFSET_STATE				43
+#define SHELLINSTANCE_SIZE 						450
+
+#define SHELLINSTANCE_INPUTBUFFER_SIZE			41
+#define SHELLINSTANCE_INPUTBUFFER_MAXINPUT		40 ;Last character is reserved for null-terminator
+
+image_header:
+header_signature:
+	DAT 0x10C
+
+header_next:
+	DAT	0xFFFF
+	
+header_name:
+	DAT "shell", 0, 0, 0, 0, 0
+	
+header_rva_ep:
+	DAT 0
+	
+test_program_rva_import:
+	DAT header_import_table
+test_program_rva_export:
+	DAT header_export_table
+test_program_rva_offset:
+	DAT header_relocations
+test_program__imageSize:
+	DAT 0x100
+	
+header_import_table:
+	DAT "kernel", 0, 0, 0, 0
+import_userInterfaceState_createState:
+	DAT 5
+import_userInterfaceState_destroyState:
+	DAT 6
+import_userInterfaceState_getVram:
+	DAT 7
+import_graphics_writeString:
+	DAT 3
+import_graphics_shiftVertical:
+	DAT 4
+	DAT 0xFFFF
+	DAT 0xFFFF
+	
+header_export_table:
+	DAT shell_create
+	DAT shell_writeString
+	DAT shell_processInput
+	DAT shell_newLine
+	DAT 0xFFFF
+	
+header_relocations:
+	DAT 0xFFFF
+	
+;cdecl inits shell structure
+;ARG1 pointer to SHELLINSTANCE
+;ARG2 input callback
+shell_create:
+	SET A, PC
+	SUB A, 1
+	SUB A, shell_create
+	SET PUSH, A
+	
+	SET C, [SP+2]
+	
+	SET [C + SHELLINSTANCE_OFFSET_CUR_WRITEORIGIN], 0
+	SET [C + SHELLINSTANCE_OFFSET_CUR_INPUTCURSOR], 0
+	
+	SET PUSH, [SP+3]
+	SET PUSH, A
+	SET PUSH, C
+	ADD [SP], SHELLINSTANCE_OFFSET_STATE
+	JSR [A + import_userInterfaceState_createState]
+
+	ADD SP, 4
+	
+	SET PC, POP
+
+;cdecl 
+;ARG1 is base of shell structure
+;ARG2 is ptr to string to write
+shell_writeString:
+	SET A, PC
+shell_writeString_nextInstruction:
+	SUB A, shell_writeString_nextInstruction
+	SET PUSH, A
+
+	SET PUSH, [SP+2] ; Get address of VRAM
+	ADD [SP], SHELLINSTANCE_OFFSET_STATE
+	JSR [A + import_userInterfaceState_getVram]
+	ADD SP, 1
+	
+	SET Y, [SP + 2]
+	SET PUSH, [Y + SHELLINSTANCE_OFFSET_CUR_WRITEORIGIN]
+	SET PUSH, [SP + 4]
+	SET PUSH, A
+	SET Y, [SP+3]
+	JSR [Y + import_graphics_writeString]
+	ADD SP, 3
+	
+	SET Y, [SP+2]
+	SET [Y + SHELLINSTANCE_OFFSET_CUR_WRITEORIGIN], A
+	
+	ADD SP, 1
+	SET PC, POP
+
+;cdecl
+;ARG1 is base of shell structure
+shell_newLine:
+	SET A, [SP+1]
+	SET Y, [A + SHELLINSTANCE_OFFSET_CUR_WRITEORIGIN]
+	MOD Y, GRAPHICS_SCREENX
+	ADD [A + SHELLINSTANCE_OFFSET_CUR_WRITEORIGIN], GRAPHICS_SCREENX
+	SUB [A + SHELLINSTANCE_OFFSET_CUR_WRITEORIGIN], Y
+	SET PC, POP
+	
+;cdecl 
+;ARG1 is base of shell structure
+;ARG2 is keycode of key pressed
+;Return if return is >0, then it is the address of a null-terminated string entered (when the user hit enter.) 
+;The string is stored in a temporary buffer and is !!!only valid until this routine is called again.!!!
+shell_processInput:
+		SET PUSH, I
+		SET I, PC
+	shell_processInput_nextInstruction:
+		SUB I, shell_processInput_nextInstruction
+		
+		
+		XOR A, A
+		
+		SET Y, [SP+2]
+		
+		SET C, I
+		ADD C, shell_processInput_userReturned
+		IFE [SP+3], KEYBOARD_KEY_RETURN
+			SET PC, C
+		
+		SET C, I
+		ADD C, shell_processInput_backspace
+		IFE [SP+3], KEYBOARD_KEY_BACKSPACE
+			SET PC, C
+			
+		SET C, I
+		ADD C, shell_processInput_ignoreInput
+		IFE [Y + SHELLINSTANCE_OFFSET_CUR_INPUTCURSOR], SHELLINSTANCE_INPUTBUFFER_MAXINPUT
+			SET PC, C
+		
+		SET C, Y
+		ADD C, [Y + SHELLINSTANCE_OFFSET_CUR_INPUTCURSOR]
+		SET [C + SHELLINSTANCE_OFFSET_INPUTBUFFER], [SP+3]
+		ADD [Y + SHELLINSTANCE_OFFSET_CUR_INPUTCURSOR], 1
+		
+	shell_processInput_writeCharacterToScreen:
+		
+		SET PUSH, Y
+		ADD [SP], SHELLINSTANCE_OFFSET_STATE
+		JSR [I + import_userInterfaceState_getVram]
+		ADD SP, 1
+	
+		SET Y, [SP+2]
+	
+		SET PUSH, 0
+		SET PUSH, [SP+4] 	;Create string on stack
+		SET C, SP			;Set Y to point to string
+		
+		SET PUSH, [Y + SHELLINSTANCE_OFFSET_CUR_WRITEORIGIN]
+		SET PUSH, C
+		SET PUSH, A
+		
+		JSR [I + import_graphics_writeString]
+		ADD SP, 5
+		
+		SET Y, [SP+2]
+		SET [Y + SHELLINSTANCE_OFFSET_CUR_WRITEORIGIN], A
+		
+		SET A, 0
+		SET I, POP
+		INT 3
+		SET PC, POP
+		
+	shell_processInput_userReturned:
+		SET Y, [SP + 2]
+		SET [Y + SHELLINSTANCE_OFFSET_CUR_INPUTCURSOR], 0
+		
+		SET PUSH, Y
+		SET C, I
+		ADD C, shell_newLine
+		JSR C
+		ADD SP, 1
+		
+		SET Y, [SP+2]
+		ADD Y, SHELLINSTANCE_INPUTBUFFER_MAXINPUT
+		SET [Y + SHELLINSTANCE_OFFSET_INPUTBUFFER], 0
+		
+		SET A, Y
+		SUB A, SHELLINSTANCE_INPUTBUFFER_MAXINPUT
+		
+	shell_processInput_ignoreInput:
+		SET I, POP
+		SET PC, POP
+		
+	shell_processInput_backspace:
+		SET C, I
+		ADD C, shell_processInput_ignoreInput
+		IFE [Y + SHELLINSTANCE_OFFSET_CUR_INPUTCURSOR], 0
+			SET PC, C
+			
+		SUB [Y + SHELLINSTANCE_OFFSET_CUR_INPUTCURSOR], 1
+		SET PUSH, 0
+		SET PUSH, KEYBOARD_KEY_SPACE
+		SET C, SP
+		
+		SUB [Y + SHELLINSTANCE_OFFSET_CUR_WRITEORIGIN], 1
+		SET PUSH, [Y + SHELLINSTANCE_OFFSET_CUR_WRITEORIGIN] ;;call to draw string stack setup
+		SET PUSH, C
+		
+		SET PUSH, Y
+		ADD [SP], SHELLINSTANCE_OFFSET_STATE
+		JSR [I + import_userInterfaceState_getVram]
+		ADD SP, 1
+		
+		SET PUSH, A ;Call to draw string stack setup.
+		
+		JSR [I + import_graphics_writeString]
+		ADD SP, 5
+		SET I, POP
+		XOR A, A
+		SET PC, POP

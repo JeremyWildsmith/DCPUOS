@@ -1,0 +1,73 @@
+
+#macro ret () {
+	set pc, pop
+}
+
+#macro call (address) {
+	jsr address
+}
+
+#macro jmp (address) {
+	set pc, address
+}
+
+#macro _push (value) {
+	set push, value
+}
+
+#macro _pop (value) {
+	set value, pop
+}
+
+#macro _sfBegin(sizeOfFrame) {
+	set	push, b
+	set b, sp
+	sub sp, sizeOfFrame
+}
+
+#macro _sfEnd() {
+	set sp, b
+	set b, pop
+}
+
+#macro _sfLocal(dest, offset) {
+	set dest, [b - offset + 1] ;Devkit interpretes this as b - (offset + 1). Doing b - offset - 1 is interepreted as (b - (offset - 1))
+}
+
+#macro _sfLocalPtr(dest, offset) {
+	set ex, b
+	sub ex, offset + 1
+	set dest, ex
+}
+
+#macro _sfLocalIfEquals(argNumber, value) { 
+	ife value, [b - argNumber + 1]
+}
+
+#macro _sfLocalSet(dest, value) {
+	set [b - dest + 1], value
+}
+
+#macro _sfArg(dest, argNumber) { 
+	set dest, [b + argNumber + 2]
+}
+
+#macro _sfArgAdd(dest, argNumber) { 
+	add dest, [b + argNumber + 2]
+}
+
+#macro _sfArgSub(dest, argNumber) { 
+	sub dest, [b + argNumber + 2]
+}
+
+#macro _sfArgAnd(dest, argNumber) { 
+	sub dest, [b + argNumber + 2]
+}
+
+#macro _sfArgIfEquals(argNumber, value) { 
+	ife value, [b + argNumber + 2]
+}
+
+#macro _sfArgIfNotEquals(argNumber, value) { 
+	ifn value, [b + argNumber + 2]
+}

@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<project version="1.7.5" type="code">
+  <name>TestProgram</name>
+  <properties>
+    <property name="code.generateBinaryOutput">true</property>
+    <property name="code.binaryOutputFilename">TestProgram.bin</property>
+    <property name="code.generateHexOutput">false</property>
+    <property name="code.hexOutputFilename">TestProgram.hex</property>
+    <property name="code.setFirstFile">False</property>
+    <property name="code.generateSelfRelocatingCode">False</property>
+  </properties>
+  <references />
+  <files>
+    <file path="main.10c">
+      <property name="providerFileTypeName">10c assembly unit test</property>
+    </file>
+    <file path="ext_def.10c" />
+  </files>
+</project>

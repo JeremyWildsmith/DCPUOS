@@ -1,0 +1,76 @@
+#define GRAPHICS_INTERRUPTCODE_MAPSCREEN 0
+
+#define GRAPHICS_VRAM_SIZE	384	;IF CHANGING THIS, BEWARE THAT userInterfaceState's SIZE macro assumes it is 384 and thus it must be changed as well
+#define GRAPHICS_SCREENX	32
+#define GRAPHICS_SCREENY	12
+
+;cdecl, returns new cursor location
+;ARG1 is pointer to video memory
+;Arg2 is pointer to nullterminated string to be printed to screen
+;Arg3 is cursor location
+graphics_writeString:
+	SET C, [SP + 2]	;Store pointer to null terminated string in C
+	
+	SET Y, [SP+1]	; Store pointer to VRAM (DEST) in Y
+	ADD Y, [SP+3]	; Add the cursor offset
+	
+	graphics_write_copyLoop:
+		IFE [C], 0
+			SET PC, graphics_write_end
+			
+			SET A, Y		; Calculate cursor position, Store in A
+			SUB A, [SP+1]
+			
+			IFL A, GRAPHICS_VRAM_SIZE	; If cursor exceeds max memory
+				SET PC, graphics_write_copyLoop_writeCharacter
+				
+			SET PUSH, C
+			SET PUSH, Y
+			
+			SET PUSH, [SP+3]			;Shift screen vertically; value is 4 to get past registeres reserved on stack
+			JSR graphics_verticalShift
+			ADD SP, 1
+			
+			SET Y, POP
+			SET C, POP
+			
+			SUB Y, GRAPHICS_SCREENX
+		graphics_write_copyLoop_writeCharacter:
+			SET [Y], [C]
+			BOR [Y], 0xF000
+			ADD Y, 1
+			ADD C, 1
+			
+		SET PC, graphics_write_copyLoop
+		
+graphics_write_end:
+	SET A, Y
+	SUB A, [SP+1]
+	SET PC, POP
+
+;cdecl, returns nothing
+;ARG1 is pointer to video memory
+graphics_verticalShift:
+	
+	SET A, 0
+	SET Y, GRAPHICS_VRAM_SIZE
+	SUB Y, GRAPHICS_SCREENX
+	
+	grapics_newLine_verticalRelocLoop:
+		SET C, [SP+1]
+		ADD C, A
+		SET [C], [C + GRAPHICS_SCREENX]
+		ADD A, 1
+		IFN A, Y
+			SET PC, grapics_newLine_verticalRelocLoop
+	
+	grapics_newLine_cleanNewLineLoop:
+		SET C, [SP+1]
+		ADD C, A
+		SET [C], 0
+		ADD A, 1
+		IFN A, GRAPHICS_VRAM_SIZE
+			SET PC, grapics_newLine_cleanNewLineLoop
+	SET PC, POP
+	
+	

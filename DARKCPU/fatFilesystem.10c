@@ -1,0 +1,677 @@
+
+
+
+
+;==================== FAT Data, used to store data about the FAT volume ====================
+fatInterface_fsFilesystemType:
+	DAT 0
+	
+fatInterface_fsSectorSizeBytes:
+	DAT 0
+
+fatInterface_fsSectorsPerCluster:
+	DAT 0
+
+fatInterface_fsNumberFatCoppies:
+	DAT 0
+	
+fatInterface_fsSectorsPerFat:
+	DAT 0
+
+fatInterface_fsNumberReservedSectors:
+	DAT 0
+
+fatInterface_fsNumberOfRootEntries:
+	DAT 0
+
+fatInterface_mediaSectorSizeWords:
+	DAT 0
+	
+fatInterface_sectorBufferCursor:
+	DAT 0
+	
+fatInterface_sectorCursor:
+	DAT 0
+	
+fatInterface_sectorBuffer:
+	DAT 0
+	
+fatInterface_fatSectorCursor:
+	DAT 0xFFFF
+
+fatInterface_fatBufferSectorCursor:
+	DAT 0xFFFF
+
+fatInterface_fatBuffer:
+	DAT 0
+	
+fatInterface_sessionMutex:
+	DAT 0
+	
+fatInterface_mediaSectorsPerFsSector_numerator:
+	DAT 0 ;High byte is numerator, low byte is denumerator
+	
+fatInterface_mediaSectorsPerFsSector_denumerator:
+	DAT 0 ;High byte is numerator, low byte is denumerator
+	
+
+;==================================== FAT Conversion Functions ====================================
+
+
+
+;No proper convention (internal use only) Destroys only C & Y registers (which it also returns through)
+;C is filesystem sector index. 
+;Y is offset into this (in words) sector (cannot exceed fs sector size.)
+;Return C = sector index, Y=offset into sector (in terms of words)
+fatInterface_fsToMediaSectorIndex:
+		SET PUSH, Y													;Preserve Y register for later calculation
+
+		;Convert fs sector number to media sector
+		MUL C, [fatInterface_mediaSectorsPerFsSector_numerator]
+		SET PUSH, C													;Save result of multiplication so we can find the remainder of this division below
+		DIV C, [fatInterface_mediaSectorsPerFsSector_denumerator]
+		
+		SET Y, POP													;Find the remainder of the divison
+		MOD Y, [fatInterface_mediaSectorsPerFsSector_denumerator]
+		
+		MUL Y, [fatInterface_fsSectorSizeBytes]						;Take the remainder and translate it to an offset, in bytes.
+		DIV Y, 2													;Convert bytes to words
+		ADD [SP], Y													;Add offset caused by converting sectors to (arg Y)the offset into the sector
+		
+		SET Y, [SP]													;Set Y to the total offset
+		DIV Y, [fatInterface_mediaSectorSizeWords]					;Attempt to factor out a sector
+
+		;If there was a sector, factor it out and add it to C (sector index).
+		IFE EX, 0
+			ADD C, Y
+		
+		SET Y, POP													;Pop off the total offset
+		MOD Y, [fatInterface_mediaSectorSizeWords] 					;Mod it such that it does not exceed the size of a sector
+		
+		SET PC, POP
+		
+;No proper convention (internal use only)
+;C is sector number, Y = offset into sector
+;returns C = Filesystem sector, Y = offset into sector
+fatInterface_mediaToFsSectorIndex:
+		SET PUSH, Y
+		MUL C, [fatInterface_mediaSectorsPerFsSector_denumerator]
+		DIV C, [fatInterface_mediaSectorsPerFsSector_numerator]
+		
+		MUL Y, 2
+		DIV Y, [fatInterface_fsSectorSizeBytes]
+		
+		ADD C, Y
+		SET Y, POP
+		SET PC, POP
+
+;No proper convention (internal use only)
+;C is cluster number, for use with absolute cluster numbers
+;returns C = Filesystem sector corresponding to cluster number 
+fatInterface_clusterNumberToFsSector:
+		SET PUSH, A
+		
+		ADD C, [fatInterface_fsNumberReservedSectors]
+		SET A, [fatInterface_fsNumberFatCoppies]		;Calculate sector of root directory
+		MUL A, [fatInterface_fsSectorsPerFat]
+		ADD C, A
+
+		ADD C, 2										;First two cluster numbers don't exist according to FAT spec.
+		
+		SET A, POP
+		SET PC, POP
+		
+;No proper convention (internal use only)
+;C is cluster number, for use with cluster number 'offsets' retrived from directory entry only
+;returns C = Filesystem sector corresponding to cluster number 
+fatInterface_directoryClusterOffsetToFsSector:
+		;Cluster Sector = # reserved Sectors + Cluster # + Size Root Directory Table (located right after last FAT) + Size of FAT * Number of FAT entries - 2 (First two FAT entries do not exist.)
+		SET PUSH, A
+		
+		
+		ADD C, [fatInterface_fsNumberReservedSectors]
+		SET A, [fatInterface_fsNumberFatCoppies]		;Calculate sector of root directory
+		MUL A, [fatInterface_fsSectorsPerFat]
+
+		ADD C, A 										;Add the calculation to the first argument (The cluster number) as per above algorithm
+
+		SET A, [fatInterface_fsNumberOfRootEntries]		;Calculate the size of 
+		MUL A, FAT_DIRECTORY_SIZEBYTES
+		DIV A, [fatInterface_fsSectorSizeBytes]
+
+		ADD C, A
+
+		SUB C, 2										;First two cluster numbers don't exist according to FAT spec.
+		
+		SET A, POP
+		SET PC, POP
+
+;cdecl, gets the cluster number of a given sector
+;C = sector number
+;returns C = cluster number
+fatInterface_fsSectorToClusterNumber:
+		;Cluster Sector = # reserved Sectors + Cluster # + Size Root Directory Table (located right after last FAT) + Size of FAT * Number of FAT entries - 2 (First two FAT entries do not exist.)
+		SET PUSH, A
+		
+		SET A, [fatInterface_fsNumberFatCoppies]		;Calculate sector of root directory
+		MUL A, [fatInterface_fsSectorsPerFat]
+		SUB C, [fatInterface_fsNumberReservedSectors]
+
+		SUB C, A 										;Add the calculation to the first argument (The cluster number) as per above algorithm
+
+		SET A, [fatInterface_fsNumberOfRootEntries]		;Calculate the size of 
+		MUL A, FAT_DIRECTORY_SIZEBYTES
+		DIV A, [fatInterface_fsSectorSizeBytes]
+
+		SUB C, A
+
+		ADD C, 2										;First two cluster numbers don't exist according to FAT spec.
+		
+		SET A, POP
+		SET PC, POP
+	
+	
+	
+;====================================    FAT Init Functions    ====================================
+
+;cdecl, no arguments Initilizes the interface.
+fatInterface_init:
+		JSR mutex_create
+		SET [fatInterface_sessionMutex], A
+
+		JSR hmd_isMediaPresent
+	
+		IFE A, 0
+			INT INTERRUPT_MESSAGE_KERNELERROR
+			
+		JSR hmd_getWordsPerSector
+		SET [fatInterface_mediaSectorSizeWords], A
+		
+		SET PUSH, A
+		JSR memory_allocate
+		SET [fatInterface_fatBuffer], A
+		JSR memory_allocate
+		SET [fatInterface_sectorBuffer], A
+		ADD SP, 1
+		
+		SET PUSH, HMD_DEVICE_ACCESS_READ
+		SET PUSH, A
+		SET PUSH, 1
+		SET PUSH, 0
+		JSR hmd_access
+		ADD SP, 4
+		
+		SET PUSH, 0
+		JSR fatInterface_loadFatBuffer
+		ADD SP, 1
+		
+		SET C, [fatInterface_sectorBuffer]
+		JSR fat_getFsType
+		SET [fatInterface_fsFilesystemType], A
+		
+		SET C, [fatInterface_sectorBuffer]
+		JSR fat_getBytesPerSector
+		SET [fatInterface_fsSectorSizeBytes], A
+
+		SET C, [fatInterface_sectorBuffer]
+		JSR fat_getSectorsPerCluster
+		SET [fatInterface_fsSectorsPerCluster], A
+		
+		SET C, [fatInterface_sectorBuffer]
+		JSR fat_getSectorsPerFat
+		SET [fatInterface_fsSectorsPerFat], A
+		
+		SET C, [fatInterface_sectorBuffer]
+		JSR fat_getFatCoppies
+		SET [fatInterface_fsNumberFatCoppies], A
+		
+		SET C, [fatInterface_sectorBuffer]
+		JSR fat_getReservedSectors
+		SET [fatInterface_fsNumberReservedSectors], A
+		
+		SET C, [fatInterface_sectorBuffer]
+		JSR fat_getMaxRootEntries
+		SET [fatInterface_fsNumberOfRootEntries], A
+		
+		
+		SET A, [fatInterface_mediaSectorSizeWords]
+		MUL A, 2
+		SET C, [fatInterface_fsSectorSizeBytes]
+		JSR math_getGreatestCommonDenumerator
+		;SET Numerator...
+		
+		SET C, [fatInterface_mediaSectorSizeWords]
+		MUL C, 2
+		DIV C, A
+		SET [fatInterface_mediaSectorsPerFsSector_denumerator], C
+		
+		SET C, [fatInterface_fsSectorSizeBytes]
+		DIV C, A
+		SET [fatInterface_mediaSectorsPerFsSector_numerator], C
+		
+		SET PC, POP
+		
+
+;====================================     FAT I\O Functions    ====================================
+
+
+
+;cdecl, advances cursor by x words, where x is define by arguments
+;arg1 is number of words to advance cursor by
+fatInterface_seek:
+		SET Y, [SP+1]
+		ADD Y, [fatInterface_sectorBufferCursor]
+		SET C, Y
+		DIV C, [fatInterface_mediaSectorSizeWords]
+		ADD [fatInterface_sectorCursor], C
+		
+		IFE	C, 0
+			SET PC, fatInterface_seekNextCluster_skipReadNextSector
+		
+		IFG C, 1
+			INT INTERRUPT_MESSAGE_KERNELERROR
+		
+		SET PUSH, Y
+		SET PUSH, C
+		
+		SET PUSH, HMD_DEVICE_ACCESS_READ
+		SET PUSH, [fatInterface_sectorBuffer]
+		SET PUSH, 1
+		SET PUSH, [fatInterface_sectorCursor]
+		JSR hmd_access
+		ADD SP, 4
+		
+		SET C, POP
+		SET Y, POP
+		
+	fatInterface_seekNextCluster_skipReadNextSector:
+		MUL C, [fatInterface_mediaSectorSizeWords]
+		SUB Y, C
+		SET [fatInterface_sectorBufferCursor], Y
+		
+		SET PC, POP
+		
+;cdecl, sets the cursor to point towards a specified sector (in terms of the filesystem, not the media)
+;Arg1 is fs sector to set the cursor to.
+;ARG2 is offset into sector
+fatInterface_set:
+		SET C, [SP + 1]
+		SET Y, [SP + 2]
+		
+		JSR fatInterface_fsToMediaSectorIndex
+		
+		SET [fatInterface_sectorBufferCursor], Y
+		
+		;Do we need to load sector?
+		IFE C, [fatInterface_sectorCursor]
+			SET PC, fatInterface_set_skipLoadSector
+			
+		SET [fatInterface_sectorCursor], C
+		
+		SET PUSH, HMD_DEVICE_ACCESS_READ
+		SET PUSH, [fatInterface_sectorBuffer]
+		SET PUSH, 1
+		SET PUSH, C
+		JSR hmd_access
+		ADD SP, 4
+		
+	fatInterface_set_skipLoadSector:
+		SET PC, POP
+		
+;cdecl, loads a portion of the FAT table into [fatInterface_fatBuffer]
+;ARG1 is WORD memory index of FAT to load into memory
+;Returns A = index of FAT (in terms of WORDs) that corresponds to the first word in the buffer
+fatInterface_loadFatBuffer:
+		SET C, [SP+1]
+		DIV C, [fatInterface_fsSectorSizeBytes]
+	
+		SET PUSH, C
+		
+		ADD C, [fatInterface_fsNumberReservedSectors]
+		
+		MUL C, [fatInterface_mediaSectorsPerFsSector_numerator]
+		SET Y, C
+		
+		DIV C, [fatInterface_mediaSectorsPerFsSector_denumerator]
+		MUL Y, [fatInterface_fsSectorSizeBytes]
+		DIV Y, [fatInterface_mediaSectorsPerFsSector_denumerator]
+		SET [fatInterface_fatBufferSectorCursor], Y
+		
+		IFE C, [fatInterface_fatSectorCursor]
+			SET PC, fatInterface_loadFatBuffer_skipBufferLoad
+		
+		SET [fatInterface_fatSectorCursor], C
+		
+		SET PUSH, HMD_DEVICE_ACCESS_READ
+		SET PUSH, [fatInterface_fatBuffer]
+		SET PUSH, 1
+		SET PUSH, C
+		JSR hmd_access
+		ADD SP, 4
+		
+	fatInterface_loadFatBuffer_skipBufferLoad:
+	
+		SET A, POP
+		DIV A, 4
+		
+		SET PC, POP
+		
+;cdecl
+;ARG1 is dest for cluster
+;ARG2 is number of words to be read from the start of that cluster [operation seeks through cluster chain.]
+;Note that routine seeks (ie, advances cursor.)
+fatInterface_readData:
+		SET PUSH, I
+		SET I, 0
+		
+		fatInterface_readDataClusterLoop:
+		
+			;calculate words left to read
+			SET Y, [SP+3]
+			SUB Y, I
+			
+			IFE Y, 0										;IF no more bytes left to read
+				SET PC, fatInterface_readData_end
+
+			SET PUSH, Y 									;Push words to be read on the stack for a call to peekCluster
+			
+			;Mod the number of bytes to be read such that it doesn't exceed the size of a single filesystem cluster.
+			SET A, [fatInterface_fsSectorSizeBytes]
+			DIV A, 2										;Size is in bytes, convert to words.
+			
+			IFG [SP], A										;Do required calculations to get proper size for this sector
+				SET [SP], A
+		
+			;Add the current memory index to the base address where memory is to be coppied to. 
+			SET C, I
+			ADD C, [SP+3]	;ARG1
+			
+			;Read the source data from the cluster into the memory buffer
+			SET PUSH, C										;Push the destination address onto the stack.
+			JSR fatInterface_peekCluster 					;Grab the data from the cluster
+			ADD SP, 1										;Cleanup all stack variables, except for the one (top-most) that describes how many words were read
+
+			ADD I, [SP]										;Advance index into dest memory by the number of bytes read
+
+			;Advance the cursor appropriately		
+			
+			SET A, [SP]										;Set A to the number of words read.
+			MUL A, 2										; Convert size in words back to size in bytes
+			IFE A, [fatInterface_fsSectorSizeBytes]			;If the amount of data read was equal to the size of the cluster, advance forward another cluster.
+				JSR fatInterface_seekCluster 				;Advance to the next cluster
+				
+			SET A, POP										;Set A to the number of words read
+			MUL A, 2
+			MOD A, [fatInterface_fsSectorSizeBytes]			;Determine how far into the cluster data was read
+			
+			SET PUSH, A										;Seek forward the number of words read.
+			JSR fatInterface_seek
+			ADD SP, 1
+			
+			SET PC, fatInterface_readDataClusterLoop
+	
+	fatInterface_readData_end:
+		SET I, POP
+		SET PC, POP
+		
+;cdecl, reads the data from the current cluster into a buffer specified by the arguments. This function does _not_ advance the cursor.
+;ARG1 is destination address where cluster will be coppied to.
+;ARG2 is number of words to copy into buffer from cluster. (Cannot exceed the cluster size.)
+fatInterface_peekCluster:
+		SET PUSH, I
+		SET C, [fatInterface_sectorBuffer]
+		ADD C, [fatInterface_sectorBufferCursor]
+		SET I, 0									;ARG2
+		
+		fatInterface_peekCluster_copyLoop:
+			
+			SET A, [SP+2]							;ARG1
+			ADD A, I
+			
+			SET Y, C
+			ADD Y, I
+			
+			SET [A], [Y]
+			ADD I, 1
+
+			IFL I, [SP+3]
+				SET PC, fatInterface_peekCluster_copyLoop
+		
+		SET I, POP
+		SET PC, POP
+
+;cdecl, advances cursor to the next cluster in the chain
+;returns Returns zero if there are no more clusters in the chain or anything else if there was a success
+fatInterface_seekCluster:
+		JSR fatInterface_getCurrentClusterFatEntry
+		
+		IFL A, FATINTERFACE_FATENTRY_VALIDCLUSTERRANGEMIN
+			SET PC, fatInterface_seekCluster_noMoreClusters
+		IFG A, FATINTERFACE_FATENTRY_VALIDCLUSTERRANGEMAX
+			SET PC, fatInterface_seekCluster_noMoreClusters
+		
+		SET C, A		
+		JSR fatInterface_clusterNumberToFsSector
+		
+		SET PUSH, 0
+		SET PUSH, C
+		JSR fatInterface_set
+		ADD SP, 2
+		
+		SET A, 1
+		SET PC, POP
+		
+	fatInterface_seekCluster_noMoreClusters:
+		XOR A, A
+		SET PC, POP
+
+
+;cdecl
+;Seeks to first root directory
+fatInterface_seekRootDirectory:
+		SET C, [fatInterface_fsNumberFatCoppies]
+		MUL C, [fatInterface_fsSectorsPerFat]
+		ADD C, [fatInterface_fsNumberReservedSectors]
+		
+		SET PUSH, 0
+		SET PUSH, C
+		JSR fatInterface_set
+		ADD SP, 2
+		
+		SET PC, POP
+
+;cdecl, advances cursor by the size of one directory
+fatInterface_seekDirectory:
+		SET PUSH, FAT_DIRECTORY_SIZE
+		JSR fatInterface_seek
+		ADD SP, 1
+		SET PC, POP
+
+;cdecl
+;Seeks inside of a directory's first cluster.
+fatInterface_seekDirectoryFirstCluster:
+		;below calculated in terms of filesystem spec (i.e their result sector must to translated)
+		;Cluster Address = Cluster # + Offset To Root Directory Table (located right after last FAT) +
+		SET C, [fatInterface_sectorBuffer]
+		ADD C, [fatInterface_sectorBufferCursor] 	;Have seek point to a current buffer in memory
+		
+		JSR fat_getDirectoryFirstCluster			;fastcall, returns the first cluster in the chain for this directory entry
+		
+		SET C, A									;Setup args for call to convert cluster # to FS sector
+		JSR fatInterface_directoryClusterOffsetToFsSector
+		
+		SET PUSH, 0
+		SET PUSH, C
+		JSR fatInterface_set
+		ADD SP, 2
+		
+		SET PC, POP
+		
+		
+;====================================       FAT Accessors      ====================================
+
+
+		
+;cdecl, returns the current cluster's FAT entry
+fatInterface_getCurrentClusterFatEntry:
+		SET C, [fatInterface_sectorCursor]
+		SET Y, [fatInterface_sectorBufferCursor]
+		JSR fatInterface_mediaToFsSectorIndex
+
+		JSR fatInterface_fsSectorToClusterNumber					;Convert this fs sector to a cluster number (i.e, the index into the FAT)
+		SET PUSH, C 												;Preserve ClusterNumber for calculating MASK shifting.
+		
+		;WORD index into FAT =  floor(3 * ClusterNumber/4)
+		MUL C, 3													;Calculate Address (aligned in words) where FAT entry begins,
+		DIV C, 4
+		
+		;Seeking MASK... SHR 0xFFF0, y; y = 3 nibbles * (Index NOT MOD 4)
+		SET A, POP 													;pop ClusterNumber off the stack for calculation
+		MOD A, 4
+		MUL A, 12 													;3 (from formula above) * 4(4 bits per Nibble)
+	
+		IFL A, 20 													;Make sure we aren't shifting too far (if we are, we need to correct it so we don't overflow EX...)
+			set PC, fatInterface_getCurrentClusterFatEntry_skipOverflowExCorrection
+			
+		SUB A, 32
+		
+		XOR A, 0xFFFF												;Take signed vlaue of 2's complement (algorithm for taking 2's complement is swapping all the bits and adding one.)
+		ADD A, 1
+		
+	fatInterface_getCurrentClusterFatEntry_skipOverflowExCorrection:
+	
+		SET PUSH, A 												;Store the amount we shifted the mask, so we can reverse the shifting on the acquired data with the mask.
+		
+		SET Y, 0xFFF0												;Using mask 0xFFF, this mask is shifted to fetch the correct nibbles per entry
+		SHR Y, A													;Shift mask, where the overflow of the operation is the low-end of the mask.
+		SET A, EX 													;Y is high word mask, A is low.
+		
+		SET PUSH, A 												;Preserve the masks
+		SET PUSH, Y
+		
+		SET PUSH, C 												;Preserve calculated word index, and pass it to call to map FAT into memory...
+		JSR fatInterface_loadFatBuffer 								;returns A = base index of mapped memory
+		SET C, POP 													;c equals calculated word index into FAT
+		SUB C, A 													;calculate our new index by subtracting our index by the base index...
+		
+		SET Y, [fatInterface_fatBuffer] 							;Calculate the address to apply our first (high) mask
+		ADD Y, [fatInterface_fatBufferSectorCursor]
+		ADD Y, C
+		SET A, [Y]
+		AND A, POP													;Apply mask to A
+		
+		;Do the same thing with the next WORD & MASK in memory region.
+		ADD Y, 1													;Advance pointer to FAT entry by one (i.e, get the low word to apply the low mask to)
+		SET C, [Y]
+		AND C, POP													;Apply the mask to C
+
+		SET Y, POP ;Y is equal to the number of bits the mask was shifted by.
+
+		;Attempt to shift left retrived high and low words into the same word. We do this by shifting left such that the data is arranged as our 
+		;previous mask, only 4 further to the right (so the 12bit value has its LSB furthest to the right
+		IFL Y, 4 ;If shifting left is actually shifting right (I.e shift -4 bits left), shift right instead
+			SET PC, fatInterface_getCurrentClusterFatEntry_shiftRight
+			
+		SUB Y, 4 ;We want to shift left back to the original position, but then 4 forward again to give each bit their proper significance. Recall our map was 0xFFF0, we want 0x0FFF
+		SHL A, Y
+		SHL C, Y
+		IFN EX, 0
+			SET C, EX
+		
+	fatInterface_getCurrentClusterFatEntry_end:
+		BOR A, C
+		
+		;We need to swap the taking into consideration that
+		;it is 12 bits (or three nibbles.) I.e, the Most significant NIBBLE must now become the least significant nibble. 
+		;i.e, we need to shift it such that 0x0ABC becomes 0x0CBA
+		SET PUSH, A		;Preserve the FAT entry
+		SHR A, 8 		;Isolate A such that it contains just the most significant nibble, and shift it right so it is now the least signigicant.
+		
+		SET C, [SP]		;Set C to the preserved fat entry
+		
+		SHL C, 8		;Shift left, making the least significant nibble now the most significant nibble
+		AND C, 0x0FFF	;Remove the first nibble from the shifted data
+		BOR A, C		;Or together the now swapped least and most significant nibbles
+		
+		SET C, POP		;Pop the preserved fat entry and store it into C
+		AND C, 0x00F0	;Apply a mask such that we only acquire the middle nibble (of a 12 bit word) The middle nibble does not change significance
+		BOR A, C		;OR together the Lest significant, middle and most significant bibble creating our swapped entry
+		SET PC, POP	
+	
+	fatInterface_getCurrentClusterFatEntry_shiftRight:
+		ADD Y, 4
+		SHR A, Y
+		SHR C, Y
+		IFN EX, 0
+			SET C, EX
+		
+		SET PC, fatInterface_getCurrentClusterFatEntry_end ; return to the caller
+
+;cdecl, Coppies the root directory's name into buffer
+;ARG1, destination for root directory name. The buffer MUST be 9 words in length (will be null-terminated).
+fatInterface_getDirectoryName:
+		SET C, [fatInterface_sectorBuffer]
+		ADD C, [fatInterface_sectorBufferCursor]
+	
+		SET PUSH, FAT_DIRECTORY_NAMELENGTH
+		SET PUSH, C
+		SET PUSH, [SP + 3]
+		JSR string_multibyteToWideChar
+		ADD SP, 3
+	
+		SET A, [SP+1]
+		SET [A + 8], 0 ;make sure last byte is null terminated.
+		SET PC, POP
+	
+;cdecl, Coppies the root directory's extention name into buffer
+;ARG1, destination for root directory name. The buffer MUST be 4 words in length (will be null-terminated).
+fatInterface_getDirectoryExtentionName:
+		SET C, [fatInterface_sectorBuffer]
+		ADD C, [fatInterface_sectorBufferCursor]
+		ADD C, FAT_DIRECTORY_OFFSET_EXTENTIONNAME
+	
+		SET PUSH, FAT_DIRECTORY_EXTENTIONNAMELENGTH
+		SET PUSH, C
+		SET PUSH, [SP + 3]
+		JSR string_multibyteToWideChar
+		ADD SP, 3
+		
+		SET A, [SP+1]
+		SET [A + 3], 0 ;make sure last byte is null terminated.
+		SET PC, POP
+
+;cdecl, gets the high compoenent of the directory size
+fatInterface_getDirectorySizeHigh:
+		SET C, [fatInterface_sectorBuffer]
+		ADD C, [fatInterface_sectorBufferCursor]
+		JSR fat_getDirectorySizeHigh
+		SET PC, POP
+
+;cdecl, gets the low compoenent of the directory size
+;no args
+fatInterface_getDirectorySizeLow:
+		SET C, [fatInterface_sectorBuffer]
+		ADD C, [fatInterface_sectorBufferCursor]
+		JSR fat_getDirectorySizeLow
+		SET PC, POP
+	
+;cdecl, return = 1 if directory is end
+fatInterface_isEndOfDirectory:
+		SET C, [fatInterface_sectorBuffer]
+		ADD C, [fatInterface_sectorBufferCursor]
+		
+		JSR fat_getDirectoryNameProperty
+		XOR A, A
+		
+		IFE C, FAT_DIRECTORYPROPERTY_LASTDIRECTORY
+			SET A, 1
+		SET PC, POP
+
+;cdecl, return = 1 if directory is end
+fatInterface_isDirectoryDirectoryTable:
+		SET C, [fatInterface_sectorBuffer]
+		ADD C, [fatInterface_sectorBufferCursor]
+		
+		JSR fat_isDirectoryDirectoryTable
+		
+		SET PC, POP

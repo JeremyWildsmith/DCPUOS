@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<solution name="DarkCPU" path="C:\Documents and Settings\Scott\My Documents\0x10c Devkit\DarkCPU\DarkCPU.10csln" currentFile="DARKCPU\main.10c">
+  <openFiles>
+    <file path="DARKCPU\main.10c" />
+    <file path="DARKCPU\threading.10c" />
+    <file path="DARKCPU\interrupt.10c" />
+    <file path="DARKCPU\mutex.10c" />
+    <file path="DARKCPU\bitmap.10c" />
+    <file path="DARKCPU\keyboard.10c" />
+    <file path="DARKCPU\device.10c" />
+    <file path="DARKCPU\hmd.10c" />
+    <file path="DARKCPU\fat.10c" />
+    <file path="DARKCPU\filesystem.10c" />
+    <file path="DARKCPU\fatVolume.10c" />
+    <file path="DARKCPU\memory.10c" />
+    <file path="DARKCPU\string.10c" />
+    <file path="DARKCPU\userInterfaceState.10c" />
+  </openFiles>
+</solution>

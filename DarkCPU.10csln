@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<solution>
+  <name>DarkCPU</name>
+  <properties>
+    <property name="emuLoad.projectName">DARKCPU</property>
+    <property name="emuLoadMode">project</property>
+    <property name="setStartupCoreSpeed">True</property>
+  </properties>
+  <projects>
+    <project path="DARKCPU\DARKCPU.10cproj" />
+    <project path="TestProgram\TestProgram.10cproj" />
+    <project path="SHELL\SHELL.10cproj" />
+  </projects>
+</solution>
