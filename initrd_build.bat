@@ -1,0 +1,1 @@
+rsfsfmt initrd .\initrd_filesystem
