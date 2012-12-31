@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<project version="1.7.5" type="code">
+<project version="1.7.6" type="code">
   <name>DARKCPU</name>
   <properties>
     <property name="code.generateBinaryOutput">true</property>
@@ -31,7 +31,7 @@
     <file path="rsfs.10c" />
     <file path="ddssi.10c" />
     <file path="ramddssi.10c" />
-    <file path="..\..\initrd">
+    <file path="..\initrd">
       <property name="providerFileTypeName">Binary Resource file</property>
       <property name="Identifier">ramddssi_initrd</property>
     </file>
