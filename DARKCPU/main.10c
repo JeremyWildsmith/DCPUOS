@@ -220,13 +220,6 @@ dat 0
 test:
 dat 0x0000, 0x0000, 0x0000
 
-kernel_bootstrapName:
-dat 0x6F62
-dat 0x746F
-dat 0x7473
-dat 0x6172
-dat 0x0070
-
 
 ;;
 ;\brief The entrypoint of the kernel's bootcode
@@ -236,7 +229,7 @@ dat 0x0070
 ;\attention Be very careful in this routine as you are not in a threaded environment (Many kernel modules will assume you are.) and many modules are not initilized.
 ;;
 main:
-
+		
 		call memory_init						;Initilize the memory manager
 		
 		_push kernel_size					;Reserve the kernel memory region
@@ -302,20 +295,6 @@ kernel_initThreadEp: ;important that any init code that might through interrupts
 		call vfs_createMount
 		add sp, 2
 		;Load everything in second-stage bootloader.
-		
-		set a, b
-		sub a, VFS_FILE_SIZE
-		
-		_push a
-		_push 0
-		call vfs_fGetRoot
-		add sp, 1
-		
-		;_push pRoot we already did this with the first push (push a)
-		_push kernel_bootstrapName
-		_push [sp+1] ;Source is the same as destination
-		call vfs_fOpenFile
-		add sp, 3
 		
 		;Cleanup ramdisk
 		call ramddssi_deinit

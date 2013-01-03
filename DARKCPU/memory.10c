@@ -244,4 +244,36 @@ memory_free:
 		_sfEnd()
 		ret
 
+
+;;
+;\brief Frees a previously allocated region of memory
+;\note Uses the cdecl calling convention \ref cdecl
+;\param dest Specifies the base address of the memory region to copy to
+;\param src Specifies the base address of the memory region to copy from
+;\param wSize The size of the memory region to copy in words. 
+;;
+memory_copy:
+		_sfBegin(0)
+		_push i
+		_push j
+		
+		_sfArg(a, 2)
+		_sfArgAdd(a, 0)
+		
+		_sfArg(i, 0) ; i is dest
+		_sfArg(j, 1) ; j is src
+		
+		memory_copy_loop:
+			ife i, a
+				jmp memory_copy_end
+
+			sti [i], [j]
+			
+			jmp memory_copy_loop
+		
+	memory_copy_end:
+		_pop j
+		_pop i
+		_sfEnd()
+		ret
 		

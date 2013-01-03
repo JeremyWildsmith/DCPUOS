@@ -7,6 +7,9 @@
 ;\version 1.0
 ;\date Dec, 22, 2012
 ;
+;
+;Hi part of fileid used as origin of file\directory entry, low part points to data of entry (for directory, this is child files.)
+;
 ;;
 
 #define RSFS_ENTRYTYPE_FILE 	 		1
@@ -14,11 +17,11 @@
 #define RSFS_HEADER_SIZE		 		2
 #define RSFS_NAME_SIZE			 		5
 #define RSFS_ENTRY_SIZE          		8
-#define RSFS_ENTRY_LASTMEMBER			7
 #define RSFS_ENTRY_OFFSET_SIZELENGTH    6
 #define RSFS_ENTRY_OFFSET_TYPE   		0
 #define RSFS_ENTRY_OFFSET_NAME   		1
-#define RSFS_ENTRY_OFFSET_DATAOFFSET   	7       
+#define RSFS_ENTRY_OFFSET_DATAOFFSET   	7
+#define RSFS_ENTRY_LASTMEMBER			7       
 
 ;This header is hacked, as this image doesn't actually go through the PE loader, it is loaded with the kernel and then added
 ;to the executable chain
@@ -60,7 +63,7 @@
 :rsfs_header_export_table
 	DAT rsfs_fsStart
 	DAT rsfs_fsEnd
-	DAT rsfs_fGetRoot
+	DAT rsfs_fInitFileDescriptor
 	DAT rsfs_fOpen
 	DAT rsfs_fClose
 	DAT rsfs_fRead
@@ -76,25 +79,24 @@ rsfs_fsEnd:
 
 
 ;;
-;\brief Opens the root directory of a filesystem.
+;\brief Inits a file descriptor for the filesystem.
 ;\note Uses the cdecl calling convention \ref cdecl
 ;\param pFile A pointer to the ouput file descriptor
 ;;
-rsfs_fGetRoot:
+rsfs_fInitFileDescriptor:
 		_sfBegin(RSFS_HEADER_SIZE)
 		_push i
 		
 		_sfArg(i, 0)
 
 		set [i + VFS_FILE_OFFSET_FILEIDLO], RSFS_HEADER_SIZE
-				
-		set a, [i + VFS_FILE_OFFSET_MEDIAREAD]
+		set [i + VFS_FILE_OFFSET_FILEIDHI], 0
 		
 		_push RSFS_HEADER_SIZE
 		_sfLocalPtr(push, RSFS_HEADER_SIZE - 1)
 		_push 0
 		_push 0
-		call a
+		call [i + VFS_FILE_OFFSET_MEDIAREAD]
 		add sp, 4
 		
 		;Access the data in reverse order, so local 0 is our numberRootEntries
@@ -109,7 +111,7 @@ rsfs_fGetRoot:
 ;\note Uses the cdecl calling convention \ref cdecl
 ;\param pParent Pointer to the parent directory of the file that is to be open.
 ;\param sFileNameMultibyte A pointer to a null-terminated ascii multi-byte string describing the file's name.
-;\param pFile A pointer to the output file descriptor.
+;\param pFile A pointer to a initialized file descriptor where the open filed is stored.
 ;\returns Returns a zero if the file does not exist, and anything else if it has been opened correctly.
 ;;
 rsfs_fOpen:
@@ -146,10 +148,10 @@ rsfs_fOpen:
 
 		set [i + VFS_FILE_OFFSET_FILEFLAGS], 0
 		
+		set [i + VFS_FILE_OFFSET_FILEIDHI], [sp + 1] ;Base of file\directory descriptor
+		
 		_sfLocalIfEquals(RSFS_ENTRY_LASTMEMBER - RSFS_ENTRY_OFFSET_TYPE, RSFS_ENTRYTYPE_DIRECTORY)
 			jmp rsfs_fOpen_openDirectory
-			
-		set [i + VFS_FILE_OFFSET_FILEFLAGS], 0
 
 		_sfLocal([i + VFS_FILE_OFFSET_LENGTH], RSFS_ENTRY_LASTMEMBER - RSFS_ENTRY_OFFSET_SIZELENGTH)
 		_sfLocal([i + VFS_FILE_OFFSET_FILEIDLO], RSFS_ENTRY_LASTMEMBER - RSFS_ENTRY_OFFSET_DATAOFFSET)
@@ -186,22 +188,59 @@ rsfs_fWrite:
 ;;
 ;\brief Locates a file adjacent to the current and initilizes the file pointer to reflect this accordingly.
 ;\note Uses the cdecl calling convention \ref cdecl
-;\param pRootFile Pointer to the parent directory of the file that is to be open.
-;\param pFile Pointer to the current file, or zero to refer to the first file.
-;\param sFileName A pointer to a null-terminated ascii multi-byte string describing the file's name.
+;\param pRootFile Pointer to the parent directory where its contained files will be enumerated
+;\param pFile Pointer to the current file, or a root file descriptor to get the first file. This buffer is overwritten with the next file in the chain.
+;\param sFileName An optional pointer to a buffer where the name of the file is stored. Must be a minimum size of RSFS_NAME_SIZE. If this argument is zero, the name is not placed into the buffer pointed to by this address.
 ;\returns Returns a zero if the pFile is the last file in the list.
 ;;
 rsfs_fEnum:
 		_sfBegin(RSFS_ENTRY_SIZE)
-		_sfArg(a, 1)	
+		_push i
 
+		_sfArg(a, 0)		
+		_sfArg(i, 1)
+
+		set c, [i + VFS_FILE_OFFSET_FILEIDHI]
+		sub c, [a + VFS_FILE_OFFSET_FILEIDHI]
+		div c, RSFS_ENTRY_SIZE
+
+		ife c, [a + VFS_FILE_OFFSET_LENGTH]
+			jmp rsfs_fEnum_end
+		
+		ife c, 0
+			add [i + VFS_FILE_OFFSET_FILEIDHI], RSFS_HEADER_SIZE
+		
+		ifa c, 0
+			add [i + VFS_FILE_OFFSET_FILEIDHI], RSFS_ENTRY_SIZE
+			
+		ifu c, 0
+			set [i + VFS_FILE_OFFSET_FILEIDHI], [a + VFS_FILE_OFFSET_FILEIDHI]
+					
+		_push RSFS_ENTRY_SIZE
+		_sfLocalPtr(push, RSFS_ENTRY_SIZE - 1)
+		_push [i + VFS_FILE_OFFSET_FILEIDHI]
+		_push 0
+		call [i + VFS_FILE_OFFSET_MEDIAREAD]
+		add sp, 4
+		
+		_sfLocal([i + VFS_FILE_OFFSET_LENGTH], RSFS_ENTRY_LASTMEMBER - RSFS_ENTRY_OFFSET_SIZELENGTH)
+		_sfLocal([i + VFS_FILE_OFFSET_FILEIDLO], RSFS_ENTRY_LASTMEMBER - RSFS_ENTRY_OFFSET_DATAOFFSET)
+		
+		_sfLocalIfEquals(RSFS_ENTRY_LASTMEMBER - RSFS_ENTRY_OFFSET_TYPE, RSFS_ENTRYTYPE_DIRECTORY)
+			set [i + VFS_FILE_OFFSET_FILEFLAGS], VFS_FILE_FILEFLAGS_DIRECTORY
+			
+		_sfArg(a, 2)
+		
 		ife a, 0
-			jmp rsfs_fEnum_getFirstFile
-
-
+			jmp rsfs_fEnum_end
+			
+		_push RSFS_NAME_SIZE
+		_sfLocalPtr(push, RSFS_ENTRY_LASTMEMBER - RSFS_ENTRY_OFFSET_NAME)
+		_push a
+		call memory_copy
+		add sp, 3
+		
 	rsfs_fEnum_end:
+		_pop i
 		_sfEnd()
 		ret
-		
-	rsfs_fEnum_getFirstFile:
-		jmp rsfs_fEnum_end

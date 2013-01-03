@@ -49,6 +49,7 @@
 #define VFS_FILE_OFFSET_SECTORSIZE  6
 #define VFS_FILE_OFFSET_MEDIAREAD   7
 #define VFS_FILE_OFFSET_MEDIAWRITE  8
+#define VFS_FILE_OFFSET_LASTMEMBER  8
 #define VFS_FILE_SIZE  			    9
 
 #define VFS_NAMELEN 				7 ;WORDS
@@ -208,7 +209,7 @@ vfs_endMount:
 ;;
 ;\brief Opens the specified file and stores its corresponding VFT_FILE structure in an output buffer.
 ;\note Uses the cdecl calling convention \ref cdecl
-;\param pParent Pointer to the parent directory of the file that is to be open.
+;\param pParent Pointer to the parent directory of the file that is to be open, or an initilized file descriptor for root directory.
 ;\param sFileNameMultibyte A pointer to a null-terminated ascii multi-byte string describing the file's name.
 ;\param pFile A pointer to the output file descriptor.
 ;;
@@ -216,11 +217,11 @@ vfs_fOpenFile:
 		_sfBegin(0)
 		
 		_sfArg(a, 0)
-		_sfArg(c, 2)
 		
-		set [c + VFS_FILE_OFFSET_MEDIAREAD], [a + VFS_FILE_OFFSET_MEDIAREAD]
-		set [c + VFS_FILE_OFFSET_MEDIAWRITE], [a + VFS_FILE_OFFSET_MEDIAWRITE]
-		set [c + VFS_FILE_OFFSET_SECTORSIZE], [a + VFS_FILE_OFFSET_SECTORSIZE]
+		_sfArg(push, 2)
+		_push [a + VFS_FILE_OFFSET_MOUNTPOINT]
+		call vfs_fInitFileDescriptor
+		add sp, 2
 		
 		_push [a + VFS_FILE_OFFSET_MOUNTPOINT]
 		call vfs_getMountFilesystem
@@ -241,12 +242,12 @@ vfs_fOpenFile:
 		ret
 
 ;;
-;\brief Opens the root directory of a filesystem.
+;\brief Initializes a file descriptor for the filesystem.
 ;\note Uses the cdecl calling convention \ref cdecl
 ;\param wMountPointIndex Mount point index to open the root directory of.
 ;\param pFile A pointer to the ouput file descriptor
 ;;
-vfs_fGetRoot:
+vfs_fInitFileDescriptor:
 		_sfBegin(0)
 		_push i
 		
@@ -286,7 +287,7 @@ vfs_fGetRoot:
 		add sp, 1
 		
 		;Find address of fGetRoot
-		_push DDSFSI_EXPORT_FGETROOT
+		_push DDSFSI_EXPORT_FINITFILEDESCRIPTOR
 		_push a
 		call peLoader_findExport
 		add sp, 2
@@ -337,5 +338,35 @@ vfs_fClose:
 		
 		_sfEnd()
 		ret
-	
-	
+
+;;
+;\brief Locates a file adjacent to the current and initilizes the file pointer to reflect this accordingly.
+;\note Uses the cdecl calling convention \ref cdecl
+;\param pRootFile Pointer to the parent directory where its contained files will be enumerated
+;\param pFile Pointer to the current file, or a root file descriptor to get the first file. This buffer is overwritten with the next file in the chain.
+;\param sFileName An optional pointer to a buffer where the name of the file is stored. Must be a minimum size of RSFS_NAME_SIZE. If this argument is zero, the name is not placed into the buffer pointed to by this address.
+;\returns Returns a zero if the pFile is the last file in the list.
+;;
+vfs_fEnum:
+		_sfBegin(0)
+		
+		_sfArg(a, 0)
+		
+		_push [a + VFS_FILE_OFFSET_MOUNTPOINT]
+		call vfs_getMountFilesystem
+		add sp, 1
+		
+		_push DDSFSI_EXPORT_FENUM
+		_push a
+		call peLoader_findExport
+		add sp, 2
+		
+		_sfArg(push, 2)
+		_sfArg(push, 1)
+		_sfArg(push, 0)
+		call a
+		add sp, 3
+		
+		_sfEnd()
+		ret
+		
