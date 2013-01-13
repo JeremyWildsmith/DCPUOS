@@ -15,7 +15,7 @@ header_next:
 	DAT	0xFFFF
 	
 header_name:
-	DAT "shell", 0, 0, 0, 0, 0
+	DAT 0x6873, 0x6c65, 0x006c, 0, 0, 0, 0, 0, 0, 0 ; cstring of 'shell'
 	
 header_rva_ep:
 	DAT 0
@@ -30,7 +30,7 @@ test_program__imageSize:
 	DAT 0x100
 	
 header_import_table:
-	DAT "kernel", 0, 0, 0, 0
+	dat 0x656b, 0x6e72, 0x6c65, 0, 0, 0, 0, 0, 0, 0 ;cstring of 'kernel'
 import_userInterfaceState_createState:
 	DAT 5
 import_userInterfaceState_destroyState:

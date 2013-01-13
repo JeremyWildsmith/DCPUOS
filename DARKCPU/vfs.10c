@@ -9,7 +9,24 @@
 ;\date Dec, 19, 2012
 ;\warning The DarkCPU Virtual Filesystem can only communicate with storage devices which implement the DarkDev Std Storage Interface (/ref DDSSI) and filesystem interfaces drivers which implement the DarkDev Std Filesystem Interface (/ref DDSFSI)
 ;
-;\page FileSystem DarkCPU File System
+;\page FileSystem Virtual File System
+;
+;Virtual File System (VFS)
+;-------------------
+;The virtual file system (VFS) module of kernel is responsible for providing a layer of abstraction between the physical structure & interface of the underlying filesystem\storage device and the software accessing the filesystem. This layer of abstraction is used
+;to allow any module running over the kernel or for the kernel itself to access the filesystem where the specific details of the filesystem or storage media remain completely transparent in the process of file access.
+;
+;If a storage media presents a specific filesystem it wishes to give the system access to, it can have its respective filesystem interface library mounted along with the respective storage driver. The filesystem interface and the storage driver are both expected
+;to implement the \ref DDSSI and \ref DDSFSI interfaces. The filesystem can be mounted to a free mountpoint using the \ref vfs_createMount routine. Once the filesystem has been mounted, its root directory can be accessed via the \ref vfs_fGetRoot routine.
+;
+;
+;File Descriptors
+;----------------
+;
+;All files are described using the VFSFile structure in the kernel. This structure is responsible for keeping track of data which describes the open file. Refer to \ref VFSFileLayout
+;
+;This is the libc implementation of FILE*.
+;
 ;Layout of a VFS Mount Point Entry
 ;---------------------------------
 ;
@@ -18,20 +35,28 @@
 ; VFS_MOUNTPOINT_OFFSET_MEDIASTORAGEDRIVER | pMediaDriver       | Stores a pointer to the media storage driver that handles direct access to the mounted storage device.
 ; VFS_MOUNTPOINT_OFFSET_FILESYSTEMDRIVER   | pFilesystemDriver  | Stores a pointer to the file system interface driver that creates an interface between the vft and the storage device.
 ;
+;\anchor VFSFileLayout
 ;Layout of a VFS File
-;
+;---------------------
 ;Offset                       | Member Name        | Description of Member
 ;-----------------------------|--------------------|----------------------
 ; VFS_FILE_OFFSET_FILELENGTH  | pFilesystemDriver  | Stores a pointer to the file system interface driver that creates an interface between the vft and the storage device.
-; VFS_FILE_OFFSET_FILEFLAGS   | pFilesystemDriver  | Stores a pointer to the file system interface driver that creates an interface between the vft and the storage device.
-; VFS_FILE_OFFSET_CURSOR      | pFilesystemDriver  | Stores a pointer to the file system interface driver that creates an interface between the vft and the storage device.
-; VFS_FILE_OFFSET_FILEIDHI    | pFilesystemDriver  | Stores a pointer to the file system interface driver that creates an interface between the vft and the storage device.
-; VFS_FILE_OFFSET_FILEIDLO    | pFilesystemDriver  | Stores a pointer to the file system interface driver that creates an interface between the vft and the storage device.
-; VFS_FILE_OFFSET_MOUNTPOINT  | pFilesystemDriver  | Stores a pointer to the file system interface driver that creates an interface between the vft and the storage device.
-; VFS_FILE_OFFSET_SECTORSIZE  | pFilesystemDriver  | Stores a pointer to the file system interface driver that creates an interface between the vft and the storage device.
-; VFS_FILE_OFFSET_MEDIAREAD   | pFilesystemDriver  | Stores a pointer to the file system interface driver that creates an interface between the vft and the storage device.
-; VFS_FILE_OFFSET_MEDIAWRITE  | pFilesystemDriver  | Stores a pointer to the file system interface driver that creates an interface between the vft and the storage device.
+; VFS_FILE_OFFSET_FILEFLAGS   | dwFileFlags        | Flags which store the state of or describe properties of the file descriptor. Refer to \ref VfsFileFlags
+; VFS_FILE_OFFSET_CURSOR      | dwCursor           | Defines the current read\write cursor of the file. Where zero is the start of the file, and 'x' is 'x' words from the start of the file.
+; VFS_FILE_OFFSET_FILEIDHI    | dwFileIdHi         | High word of file id. The file id member can be used only internally by the filesystem driver, and in any manner the implementation of the filesystem driver deems useful.
+; VFS_FILE_OFFSET_FILEIDLO    | dwFileIdLo         | Low word of file id. The file id member can be used only internally by the filesystem driver, and in any manner the implementation of the filesystem driver deems useful.
+; VFS_FILE_OFFSET_MOUNTPOINT  | dwMountPoint       | An index describing the mountpoint this file's containing filesystem is mounted on.
+; VFS_FILE_OFFSET_SECTORSIZE  | dwSectorSize       | The size of a single sector of the storage media.
+; VFS_FILE_OFFSET_MEDIAREAD   | pfnMediaRead       | A pointer to the raw media read operation of the underlying storage device
+; VFS_FILE_OFFSET_MEDIAWRITE  | pfnMediaWrite      | A pointer to the raw media write operation of the underlying storage device
 ;
+;\anchor VfsFileFlags
+;VFS File Flags
+;--------------
+; Flag                         | Description
+;------------------------------|--------------
+;VFS_FILE_FILEFLAGS_DIRECTORY  | Set when the file descriptor describes a directory
+;VFS_FILE_FILEFLAGS_EOF        | EOF bit set when the cursor has reached the end of the file
 ;;
 
 #define VFS_MAXMOUNTS	4
@@ -55,6 +80,7 @@
 #define VFS_NAMELEN 				7 ;WORDS
 
 #define VFS_FILE_FILEFLAGS_DIRECTORY 1
+#define VFS_FILE_FILEFLAGS_EOF 		 2
 
 :vfs_mounts		;Points to a list of mount points of length VFS_MAXMOUNTS
 :vfs_mount0
@@ -212,16 +238,12 @@ vfs_endMount:
 ;\param pParent Pointer to the parent directory of the file that is to be open, or an initilized file descriptor for root directory.
 ;\param sFileNameMultibyte A pointer to a null-terminated ascii multi-byte string describing the file's name.
 ;\param pFile A pointer to the output file descriptor.
+;\returns Returns a zero if the file does not exist, and anything else if it has been opened correctly.
 ;;
 vfs_fOpenFile:
 		_sfBegin(0)
 		
 		_sfArg(a, 0)
-		
-		_sfArg(push, 2)
-		_push [a + VFS_FILE_OFFSET_MOUNTPOINT]
-		call vfs_fInitFileDescriptor
-		add sp, 2
 		
 		_push [a + VFS_FILE_OFFSET_MOUNTPOINT]
 		call vfs_getMountFilesystem
@@ -242,12 +264,12 @@ vfs_fOpenFile:
 		ret
 
 ;;
-;\brief Initializes a file descriptor for the filesystem.
+;\brief Gets the root file descriptor for the filesystem. 
 ;\note Uses the cdecl calling convention \ref cdecl
 ;\param wMountPointIndex Mount point index to open the root directory of.
 ;\param pFile A pointer to the ouput file descriptor
 ;;
-vfs_fInitFileDescriptor:
+vfs_fGetRoot:
 		_sfBegin(0)
 		_push i
 		
@@ -287,7 +309,7 @@ vfs_fInitFileDescriptor:
 		add sp, 1
 		
 		;Find address of fGetRoot
-		_push DDSFSI_EXPORT_FINITFILEDESCRIPTOR
+		_push DDSFSI_EXPORT_FGETROOT
 		_push a
 		call peLoader_findExport
 		add sp, 2
@@ -335,6 +357,37 @@ vfs_fClose:
 		_sfArg(push, 0)
 		call a
 		add sp, 1
+		
+		_sfEnd()
+		ret
+
+;;
+;\brief Reads the contents of a given file descriptor. The descriptor must describe a file. Use on a directory will cause undefined behaviour.
+;\note Uses the cdecl calling convention \ref cdecl. If the end of file is reached, the eof bit is set.
+;\param pFile Pointer to file descriptor of file to be read from.
+;\param pBuffer Pointer to destination buffer where data is read into.
+;\param wBufferSize The number of bytes to be read into the buffer.
+;\returns Returns the number of bytes read into buffer.
+;;
+vfs_fRead:
+		_sfBegin(0)
+		
+		_sfArg(a, 0)
+		
+		_push [a + VFS_FILE_OFFSET_MOUNTPOINT]
+		call vfs_getMountFilesystem
+		add sp, 1
+		
+		_push DDSFSI_EXPORT_FREAD
+		_push a
+		call peLoader_findExport
+		add sp, 2
+		
+		_sfArg(push, 2)
+		_sfArg(push, 1)
+		_sfArg(push, 0)
+		call a
+		add sp, 3
 		
 		_sfEnd()
 		ret

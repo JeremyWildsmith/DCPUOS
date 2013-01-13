@@ -179,25 +179,86 @@
 :peLoader_root
 	DAT	kernel_image_header
 
+;;
+;\brief Loads an executable image from the filesystem and Initializes\Executes it.
+;\note Uses cdecl calling convention. \ref cdecl
+;\details This functon perfroms similar to peLoader_initProcess, only it first loads an image from the filesystem and then initilizes it.
+;\param pFile A pointer to the file descriptor of the file to be loaded into memory.
+;\param pSourceDirectory A pointer to a file descriptor of the directory where dependencies are looked for.
+;\return Returns a 0 on error, or the base address of the loaded executable if it was loaded successfully.
+;;
+peLoader_loadImage:
+		_sfBegin(1)
+		_sfArg(c, 0)
+		
+		set a, [c + VFS_FILE_OFFSET_LENGTH] ;Get file size in bytes and align it in to words
+		div a, 2
+		ifn ex, 0
+			add a, 1
+			
+		_sfLocalSet(0, a) ;Store the size as a local variable
+		
+		_push a
+		call memory_allocate
+		add sp, 1
+		
+		_sfArg(push, 1) ;setup stack for a call to peLoader_initProcess
+		_push a 
+		
+		_sfArg(c, 0)
+		
+		_sfLocal(push, 0)
+		_push a
+		_push c
+		call vfs_fRead
+		add sp, 3
+		
+		call peLoader_initImage
+		_pop c						;The base address of our memory allocated for our executable image
+		add sp, 1
+		
+		ife a, 0
+			jmp peLoader_loadImage_failed
+		
+		set a, c					;return base address of executable image
+		
+	peLoader_loadImage_end:
+		_sfEnd()
+		ret
 	
+	peLoader_loadImage_failed:
+		_sfArg(y, 0)
+		
+		;If initialization failed, deallocate the region of memory we were loading the executable into.
+		_sfLocal(push, 0)
+		_push c
+		call memory_free
+		add sp, 2
+		set a, 0
+		
+		jmp peLoader_loadImage_end
+		
 ;;
 ;\brief Initializes and executes an executable image in memory.
 ;\note Uses cdecl calling convention. \ref cdecl
+;\note Dependencies are loaded using same source directory provided in this call.
 ;\details This routine will take the address of the loaded executable image in memory provided via the arguments, initializes the image's Import Address Table, adds it 
 ;to the task chain, corrects its export table (adds its base address to the export rvas described in the export table) and creates a thread at its entrypoint.
 ;\param pImage A pointer to the raw executable image in memory to Initializes.
+;\param pSourceDirectory A pointer to a file descriptor of the directory where dependencies are looked for.
 ;\return Returns a 0 on error, and anything else otherwise.
 ;;
-peLoader_createImage:
+peLoader_initImage:
 		_sfBegin(0)
+		
 		_push i												;Preserve the state of the i register so we do not corrupt it.
+		
 		_sfArg(i, 0)										;Set I a pointer to the raw executale image
 	
 		ifn [i], PEIMAGE_SIGNATURE							;Check for the proper signature in the header, if it isn't there, cause error
 			jmp peLoader_create_error
 		
 		add i, [i + PEIMAGE_OFFSET_RVA_IMPORT_TABLE]		;Seek to the Images import table.
-		
 		
 		ife i, 0											;Skip initilizing the import table.
 			jmp peLoader_create_initImportTable_end
@@ -207,9 +268,10 @@ peLoader_createImage:
 			ife [i], PEIMAGE_INVALID_IMPORT					;If the current entry in the ModuleImport is equal to PEIMAGE_INVALID_IMPORT, it is the 
 				jmp peLoader_create_initImportTable_end		;end of the list, as PEIMAGE_INVALID_IMPORT is used to terminate the list
 		
+			_sfArg(push, 1)
 			_push i
-			call peLoader_findImage							;Locate the module we are importing from, and store the result in A
-			add sp, 1
+			call peLoader_findImageEx						;Locate the module we are importing from, and store the result in A
+			add sp, 2
 			
 			add i, PEIMAGE_NAMELEN							;Seek past the name entry of the executable image's ModuleImport structure
 															;and seek to the list of imported ordinals
@@ -220,8 +282,6 @@ peLoader_createImage:
 					jmp peLoader_create_moduleImportLoop_end
 	
 				set c, [a + PEIMAGE_OFFSET_RVA_EXPORT_TABLE]		;Calculate the address of the export table we are importing from into C
-				
-				
 				
 				add c, a
 				add c, [i]											;Add the ordinal number to the base address of the export table (thus calculating the address of the ordinals corresponding imported function)
@@ -273,17 +333,16 @@ peLoader_createImage:
 	peLoader_create_noEntryPoint:
 		call peLoader_findLastImage									;Locate the last executable image in the linked list of executable images
 		_sfArg([a + PEIMAGE_OFFSET_NEXT], 0)						;Set its next entry to the executable image we just loaded (add this executable image to the chain.)
-	
-		_pop i														;Restore state of I register
 		set a, 1													;Return a 1 for success
+	
+	peLoader_create_end:
+		_pop i														;Restore state of I register
 		_sfEnd()
 		ret
 			
 	peLoader_create_error:
-		_pop i
-		set A, 0													;return a zero on error
-		_sfEnd()
-		ret
+		set a, 0													;return a zero on error
+		jmp peLoader_create_end
 
 ;;
 ;\brief Finds the base address of last executable image in the linked list of initialized executable images.
@@ -310,7 +369,7 @@ peLoader_findLastImage:
 ;\brief Locates an initialized executable image in memory
 ;\note Uses cdecl calling convention. \ref cdecl
 ;\details Determines the address of an executable in memory and returns the base address of that image. This is done by walking through the linked list and comapring each entries name with the one we are looknig for.
-;\param sName Name of the module to locate the base address of.
+;\param sNameSinglebyte Name of the module to locate the base address of in ascii single-byte.
 ;\return Returns base address of executable image in memory, or zero if the entry was not found.
 ;;
 peLoader_findImage:
@@ -330,7 +389,7 @@ peLoader_findImage:
 			set [sp], i										;Calculate the address of the images name, and store it on the stack
 			add [sp], PEIMAGE_OFFSET_NAME
 			
-			call string_compare								;compare the two strings
+			call string_sbCompare							;compare the two strings
 			
 			ife a, 0										;if the two strings are equal
 				jmp peLoader_findModule_loop_end			;exit the loop, and proceed to return the executable image's base address to the caller
@@ -343,19 +402,52 @@ peLoader_findImage:
 		
 		add sp, 2											;Cleanup stack after call to string_compare
 		set a, i											;Set a to i (i is equal to the base address of the image.)
+
+peLoader_findImage_end:
 		_pop i												;restore the state of the i register
 		_sfEnd()
 		ret
 	
 	peLoader_findModule_error:
 		add sp, 2
-		
 		set a, 0
 		
-		_pop i
+		jmp peLoader_findImage_end
+;;
+;\brief Either locates an initialized executable image in memory, or if such image does not exist in memory, looks for the image in the provided directory and loads it into memory.
+;\note Uses cdecl calling convention. \ref cdecl
+;\details Determines the address of an executable (if it is not already in memory, it is loaded into memory) and returns the base address of that image.
+;\param sNameSinglebyte Name of the module to locate the base address of in ascii single byte.
+;\param pSourceDirectory The source directory to look for the executable image in, if it is not found to be already loaded in memory
+;\return Returns base address of executable image in memory, or zero if the entry was not found.
+;;
+peLoader_findImageEx:
+		_sfBegin(VFS_FILE_SIZE)
+		
+		_sfArg(push, 0)
+		call peLoader_findImage
+		add sp, 1
+		
+		ifn a, 0
+			jmp peLoader_findImageEx_end
+		
+		_sfLocalPtr(push, VFS_FILE_OFFSET_LASTMEMBER)		
+		_sfArg(push, 0)
+		_sfArg(push, 1)
+		call vfs_fOpenFile
+		add sp, 3
+		
+		ife a, 0
+			jmp peLoader_findImageEx_end
+		
+		_sfArg(push, 1)
+		_sfLocalPtr(push, VFS_FILE_OFFSET_LASTMEMBER)
+		call peLoader_loadImage
+		add sp, 2
+		
+	peLoader_findImageEx_end:
 		_sfEnd()
 		ret
-
 ;;
 ;\brief Locates export from an executable image given the ordinal number and the base address of the image in memory.
 ;\note Uses cdecl calling convention. \ref cdecl

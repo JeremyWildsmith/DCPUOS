@@ -1,1 +1,1 @@
-rsfsfmt initrd .\initrd_filesystem
+darkOsRsfs.exe initrd .\initrd_filesystem

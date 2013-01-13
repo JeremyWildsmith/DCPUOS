@@ -48,7 +48,10 @@
 	DAT ramddssi_read
 	DAT ramddssi_write
 	DAT 0xFFFF
-
+;;
+;\brief Initializes the initrd in memory.
+;\note Uses the cdecl calling convention \ref cdecl
+;;
 ramddssi_init:
 		_push RAMDDSSI_VOLUMESIZE
 		_push ramddssi_initrd
@@ -56,22 +59,39 @@ ramddssi_init:
 		add sp, 2
 		
 		ret
-	
+
+;;
+;\brief Cleans up the initrd in memory.
+;\note Uses the cdecl calling convention \ref cdecl
+;;
 ramddssi_deinit:
 		_push RAMDDSSI_VOLUMESIZE
 		_push ramddssi_initrd
 		call memory_free
 		add sp, 2
 		ret
-
+;;
+;\brief Gets the flags set for the storage device
+;\note Uses the cdecl calling convention \ref cdecl
+;\returns Returns the flags set for the storage device
+;;
 ramddssi_getFlags:
 		set a, 0
 		ret
-	
+;;
+;\brief Gets the sectors size of the storage device
+;\note Uses the cdecl calling convention \ref cdecl
+;\returns Returns the sectors size of the storage device
+;;
 ramddssi_getSectorSize:
 		set a, 1
 		ret
-	
+
+;;
+;\brief Gets the size of the storage volume in terms of sectors.
+;\note Uses the cdecl calling convention \ref cdecl
+;\returns Returns the size of the storage volume in terms of sectors
+;;
 ramddssi_getVolumeSize:
 		set a, 0xFFFF
 		ret

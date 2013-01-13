@@ -54,8 +54,9 @@
 ;The Thread Environment Block
 ;----------------------------
 ;\note This has not yet been implemented.
-;The thread environment block is a structure located inside of the TreadContext strucutre, and can be located by calling \ref threading_getTeb. The TEB contains information
-;such as the threads current exception handlers.
+;The thread environment block is a structure located inside of the TreadContext strucutre. The thread environment block is pointed to by the Z register of the thread when the thread is created. It is
+;the responsiblity of the code to maintain the Z register if it wishes to access the thread context strucutre. All functions in the DCPU kernel assumes the Z register points to the thread's ThreadContext 
+;structure when they are entered.
 ;
 ;Layout of the ThreadContext structure
 ;--------------------------------------
@@ -76,6 +77,7 @@
 ; THREADCONTEXT_OFFSET_NEXT 			| pNextThread       | Points to the next thread in the linked list of threads, or to THREADING_INVALIDENTRY if the ThreadContext is the last in the list
 ; Start of the TEB Block                | N\A               | N\A
 ; THREADCONTEXT_TEB_OFFSET				| pTeb				| Points to the start of the Thread Environment Block.
+; THREADCONTEXT_TEB_OFFSET_PARENTIMAGE	| pParentImage		| Pointer to the executable image which this thread belongs to, or null if it does not belong to an executable
 ; THREADCONTEXT_TEB_OFFSET_SEHCHAIN		| pTebSehChain		| Pointer to the first SEH entry in the thread's SEH chain. Refer to \ref ExceptionManager
 ; Start of the Stack Memory Region      | N\A               | N\A
 ;          ...                          | Thread Stack      | Memory allocated for the thread's stack
@@ -152,10 +154,21 @@
 ;\details Defines the offset to the regJ member of the ThreadContext structure. Refer to \ref ThreadContextLayout
 ;;
 #define THREADCONTEXT_OFFSET_J  				10
+
 ;;
 ;\details Defines the offset to the pNext member of the ThreadContext structure. Refer to \ref ThreadContextLayout
 ;;
 #define THREADCONTEXT_OFFSET_NEXT			  	11
+
+;;
+;\details Defines the offset to the THREADCONTEXT_TEB_OFFSET member of the ThreadContext structure. Refer to \ref ThreadContextLayout
+;;
+#define THREADCONTEXT_TEB_OFFSET				12
+
+;;
+;\details Defines the offset to the THREADCONTEXT_TEB_OFFSET_PARENTIMAGE member of the ThreadContext structure. Refer to \ref ThreadContextLayout
+;;
+#define THREADCONTEXT_TEB_OFFSET_PARENTIMAGE	12
 
 ;;
 ;\details Defines the state of the threading system. This value is used to symbolize the normal state. Refer to \ref LockingTheThreadManager
@@ -212,6 +225,27 @@ threading_endCycle:
 ;;
 threading_createThread:
 		_sfBegin(0)
+		
+		_push [z + THREADCONTEXT_TEB_OFFSET_PARENTIMAGE]
+		_sfArg(push, 1)
+		_sfArg(push, 0)
+		call threading_createThreadEx
+		add sp, 3
+		
+		_sfEnd()
+		ret
+
+;;
+;\brief Creates a new thread of execution of at a given address.
+;\note Uses cdecl calling convention. \ref cdecl
+;\details Creates a new thread at a specified origin. The thread can also be passed an argument when created which will be stored in its A register.
+;\param pEntryPoint Pointer to where this thread should start executing in memory. The entry point is called with the \ref asyncCall calling convention.
+;\param wArgument   Argument to pass to the thread's entrypoint. Refer to \ref asyncCall for details on how this argument is transfered.
+;\param pParentImage Pointer to the executable image of this thread's parent.
+;\return Returns the base address of the thread's ThreadContext structure, which can be interpreted as the threads ID.
+;;
+threading_createThreadEx:
+		_sfBegin(0)
 		call threading_lock 											;Lock the threading system to assure it does not change\access any threading structures as we mutate them.
 	
 		_push THREADCONTEXT_SIZE										;Allocate thread's ThreadContext structure.
@@ -220,6 +254,10 @@ threading_createThread:
 		
 		_sfArg([a + THREADCONTEXT_OFFSET_PC], 0)						;Set the thread's TheadContext's regPc to the first argument, pEntryPoint, so that when it is swapped to, it begins executing at that address.
 		_sfArg([a + THREADCONTEXT_OFFSET_A], 1)							;Set the thread's TheadContext's regA to the secont argument, wArgument, so that when it is swapped to, it begins executing with the 'A' register equal to the argument passed to the thread.
+		_sfArg([a + THREADCONTEXT_TEB_OFFSET_PARENTIMAGE], 2)			;Set the thread's ThreadContext TEB's to reference a parent executabe image described in the arguments.
+		
+		set [a + THREADCONTEXT_OFFSET_Z], a								;Setup Z register such that it points to the thread's ThreadContext structure.
+		
 		set [a + THREADCONTEXT_OFFSET_NEXT], THREADING_INVALIDENTRY		;Assure that the NEXT entry of this thread is invalid (i.e, it is the last entry in the linked list)
 		
 		;Below code 'pushes' a return address of threading_endOfThread onto the stack.
@@ -230,25 +268,25 @@ threading_createThread:
 		
 		;Loop attempts to append thread to linked list of threads.
 		ife [threading_rootThread], THREADING_INVALIDENTRY				;If the root thread is invalid (i.e, there are no active threads on the system.)
-			jmp threading_createThread_rootEntry						;Set this new thread as the root thread.
+			jmp threading_createThreadEx_rootEntry						;Set this new thread as the root thread.
 			
 		set y, [threading_rootThread]									;Otherwise iterate over threads in linked list and look for one that has a free next entry (i.e, a next entry that is not valid) and link our new thread to that one.
 		
-		threading_createThread_seekLastLoop:
+		threading_createThreadEx_seekLastLoop:
 			ife [y + THREADCONTEXT_OFFSET_NEXT],  THREADING_INVALIDENTRY
-				jmp threading_createThread_createEntry
+				jmp threading_createThreadEx_createEntry
 				
 			set y, [y + THREADCONTEXT_OFFSET_NEXT]
-			jmp threading_createThread_seekLastLoop
+			jmp threading_createThreadEx_seekLastLoop
 			
-	threading_createThread_createEntry:
+	threading_createThreadEx_createEntry:
 		set [y + THREADCONTEXT_OFFSET_NEXT], a
-		jmp threading_createThread_end
+		jmp threading_createThreadEx_end
 			
-	threading_createThread_rootEntry:
+	threading_createThreadEx_rootEntry:
 		set [threading_rootThread], a
 		
-	threading_createThread_end:
+	threading_createThreadEx_end:
 		_push a
 		call threading_free
 		_pop a

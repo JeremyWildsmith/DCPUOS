@@ -63,7 +63,7 @@
 :rsfs_header_export_table
 	DAT rsfs_fsStart
 	DAT rsfs_fsEnd
-	DAT rsfs_fInitFileDescriptor
+	DAT rsfs_fGetRoot
 	DAT rsfs_fOpen
 	DAT rsfs_fClose
 	DAT rsfs_fRead
@@ -79,11 +79,11 @@ rsfs_fsEnd:
 
 
 ;;
-;\brief Inits a file descriptor for the filesystem.
+;\brief Gets the root directory of a file descriptor for the filesystem.
 ;\note Uses the cdecl calling convention \ref cdecl
 ;\param pFile A pointer to the ouput file descriptor
 ;;
-rsfs_fInitFileDescriptor:
+rsfs_fGetRoot:
 		_sfBegin(RSFS_HEADER_SIZE)
 		_push i
 		
@@ -117,17 +117,24 @@ rsfs_fInitFileDescriptor:
 rsfs_fOpen:
 		_sfbegin(RSFS_ENTRY_SIZE) ;Allocate enough words on the stack for our read buffer
 		_push i
+		_push j
 		_push x
 		
-		_sfArg(i, 0)
+		_sfArg(j, 0)
+		_sfArg(i, 2)
+		
+		set [i + VFS_FILE_OFFSET_MOUNTPOINT], [j + VFS_FILE_OFFSET_MOUNTPOINT]
+		set [i + VFS_FILE_OFFSET_SECTORSIZE], [j + VFS_FILE_OFFSET_SECTORSIZE]
+		set [i + VFS_FILE_OFFSET_MEDIAREAD], [j + VFS_FILE_OFFSET_MEDIAREAD]
+		set [i + VFS_FILE_OFFSET_MEDIAWRITE], [j + VFS_FILE_OFFSET_MEDIAWRITE]
 		
 		;Setup stack for calls to mediaread
 		_push RSFS_ENTRY_SIZE
 		_sfLocalPtr(push, RSFS_ENTRY_SIZE - 1)
-		_push [i + VFS_FILE_OFFSET_FILEIDLO]
+		_push [j + VFS_FILE_OFFSET_FILEIDLO]
 		_push 0
 		
-		set x, [i + VFS_FILE_OFFSET_LENGTH]
+		set x, [j + VFS_FILE_OFFSET_LENGTH]
 		
 		rsfs_fOpen_findDirectoryLoop:
 			ife x, 0
@@ -140,8 +147,10 @@ rsfs_fOpen:
 			
 			_push a				;Setup args to mbCompare
 			_sfArg(push, 1) 
-			call string_mbCompare
+			call string_sbCompare
 			add sp, 2
+			
+			sub x, 1
 
 			ifn a, 0
 				jmp rsfs_fOpen_findDirectoryLoop
@@ -158,9 +167,12 @@ rsfs_fOpen:
 		
 		set [i + VFS_FILE_OFFSET_CURSOR], 0
 		
+		set a, 1
+		
 	rsfs_fOpen_end:
 		add sp, 4
 		_pop x
+		_pop j
 		_pop i
 		_sfEnd()
 		ret
@@ -177,13 +189,50 @@ rsfs_fOpen:
 		jmp rsfs_fOpen_end
 		
 rsfs_fClose:
-	ret
-	
+		ret
+
+;;
+;\brief Reads the contents of a given file descriptor. The descriptor must describe a file. Use on a directory will cause undefined behaviour.
+;\note Uses the cdecl calling convention \ref cdecl. If the end of file is reached, the eof bit is set.
+;\param pFile Pointer to file descriptor of file to be read from.
+;\param pBuffer Pointer to destination buffer where data is read into.
+;\param wBufferSize The number of bytes to be read into the buffer.
+;\returns Returns the number of bytes read into buffer.
+;;
 rsfs_fRead:
-	ret
-	
+		_sfBegin(0)
+		
+		_sfArg(a, 0)
+		set c, [a + VFS_FILE_OFFSET_FILEIDLO]
+		add c, [a + VFS_FILE_OFFSET_CURSOR]
+		
+		ifl c, [a + VFS_FILE_OFFSET_LENGTH]
+			jmp rsfs_fRead_readFile
+		
+		bor [a + VFS_FILE_OFFSET_FILEFLAGS], VFS_FILE_FILEFLAGS_EOF
+		
+		set a, 0
+	rsfs_fRead_end:
+		_sfEnd()
+		ret
+		
+	rsfs_fRead_readFile:
+		
+		_sfArgAdd([a + VFS_FILE_OFFSET_CURSOR], 2) ;advance cursor number of words read.
+		
+		_sfArg(push, 2)
+		_sfArg(push, 1)
+		_push c
+		_push 0
+		call [a + VFS_FILE_OFFSET_MEDIAREAD]
+		add sp, 4
+		
+		jmp rsfs_fRead_end
+		
+		
+		
 rsfs_fWrite:
-	ret
+		ret
 	
 ;;
 ;\brief Locates a file adjacent to the current and initilizes the file pointer to reflect this accordingly.

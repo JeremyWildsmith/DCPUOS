@@ -28,19 +28,19 @@ string_compare:
 		XOR A, A
 		SET PC, POP
 
-;cdecl converts multibytestring to wide-character string
+;cdecl converts singlebytestring to wide-character string
 ;ARG1 is dest buffer
 ;ARG2 is string to be converted
 ;ARG3 is length
-string_multibyteToWideChar:
+string_singlebyteToWideChar:
 	SET PUSH, I
 	
 	SET I, 0
 	
-	string_multibyteToWideChar_wordLoop:
+	string_singlebyteToWideChar_wordLoop:
 	
 		IFE I, [SP + 4]
-			SET PC, string_multibyteToWideChar_wordLoop_end
+			SET PC, string_singlebyteToWideChar_end
 			
 		SET Y, I
 		DIV Y, 2
@@ -63,9 +63,9 @@ string_multibyteToWideChar:
 		SET [A], C
 		
 		ADD I, 1
-		SET PC, string_multibyteToWideChar_wordLoop
+		SET PC, string_singlebyteToWideChar_wordLoop
 		
-	string_multibyteToWideChar_wordLoop_end:
+	string_singlebyteToWideChar_end:
 	
 	SET I, POP
 	SET PC, POP
@@ -116,7 +116,7 @@ string_length:
 ;ARG1 string a, null terminated
 ;ARG2 string b
 ;returns 0 on equal
-string_mbCompare:
+string_sbCompare:
 		_sfBegin(0)
 		_push i
 		_push j
@@ -124,26 +124,26 @@ string_mbCompare:
 		_sfArg(i, 0)
 		_sfArg(j, 1)
 		
-		string_mbCompare_loop:
+		string_sbCompare_loop:
 			IFN [i], [j]
-				jmp string_mbCompare_unequal
+				jmp string_sbCompare_unequal
 		
 			sti a, [i]
 			
 			ifb a, 0xFF00
-				jmp string_mbCompare_loop
+				jmp string_sbCompare_loop
 	
 			ifb [j - 1], 0xFF00
-				jmp string_mbCompare_loop
+				jmp string_sbCompare_loop
 			
-	string_mbCompare_equal:
+	string_sbCompare_equal:
 		set a, 0
-		jmp string_mbCompare_end
+		jmp string_sbCompare_end
 		
-	string_mbCompare_unequal:
+	string_sbCompare_unequal:
 		set a, 0xFFFF
 
-	string_mbCompare_end:
+	string_sbCompare_end:
 		_pop j
 		_pop i
 		_sfEnd()

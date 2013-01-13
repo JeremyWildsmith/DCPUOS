@@ -6,7 +6,7 @@ header_next:
 	DAT	0xFFFF
 	
 header_name:
-	DAT "tstprgm", 0, 0, 0
+	DAT 0x6574, 0x7473, 0x7270, 0x676f, 0x6172, 0x006d, 0, 0, 0, 0 ; cstring of 'testprogram'
 	
 header_rva_ep:
 	DAT main
@@ -21,15 +21,11 @@ test_program__imageSize:
 	DAT 0x100
 	
 header_import_table:
-	DAT "kernel", 0, 0, 0, 0
+	dat 0x656b, 0x6e72, 0x6c65, 0, 0, 0, 0, 0, 0, 0 ; cstring of 'kernel'
 import_memory_allocateMemory:
 	DAT 1
-import_string_replace:
-	DAT 41
-import_string_compare:
-	DAT 39
 	DAT 0xFFFF
-	DAT "shell", 0, 0, 0, 0, 0
+	DAT 0x6873, 0x6c65, 0x006c, 0, 0, 0, 0, 0, 0, 0 ; cstring of 'shell'
 import_shell_createShell:
 	DAT 0
 import_shell_writeString:
@@ -59,10 +55,8 @@ filesystem_session:
 	DAT 0x0000
 	
 shell_welcome:
-DAT	"jetaSpace DarkCPU [Version 1.0b]", "(C) Copyright 0-98 jetaSpaceCorp", "                                \>", 0
+	dat	"test second stage bootloader.", 0
 
-hello:
-	DAT "hello", 0
 main:
 	
 	SET PUSH, B
@@ -71,7 +65,7 @@ main:
 	
 	SET [B-1], A
 	
-	SET PUSH, SHELLINSTANCE_SIZE ;THIS IS DEFINED OUTSIDE OF DARKCPU! BEWARE IT MAY CHANGE
+	SET PUSH, SHELLINSTANCE_SIZE
 	JSR [A + import_memory_allocateMemory]
 	ADD SP, 1
 
@@ -97,43 +91,4 @@ main:
 
 ;;A Will be set to base address of callee module
 input_handler:
-	SET PUSH, I
-	SET I, PC
-input_handler_nextInstruction:
-	SUB I, input_handler_nextInstruction
-	
-	SET PUSH, [SP + 2]
-	SET PUSH, [I+ shell_instance]
-	JSR [I + import_shell_processInput]
-	ADD SP, 2
-	
-	SET C, I
-	ADD C, input_handler_end
-	
-	IFE A, 0
-		SET PC, C
-	
-	SET PUSH, A
-	
-	SET PUSH, 0
-	SET PUSH, ' '
-	SET PUSH, A
-	JSR [I + import_string_replace]
-	ADD SP, 3
-	
-	SET PUSH, [SP]
-	SET PUSH, [I + hello]
-	ADD [SP], I
-	JSR [I + import_string_compare]
-	ADD SP, 3
-	
-	IFE A, 0
-		SET PC, input_handler_hello
-	
-input_handler_end:
-	SET I, POP
-	SET PC, POP
-	
-input_handler_hello:
-	SET I, POP
-	SET PC, POP
+	set pc, pop

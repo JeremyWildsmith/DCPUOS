@@ -218,7 +218,7 @@ void writeDirectory(const DirectoryEntry& dir, const WORD wDataRegionOffset, std
 		if(offset + it->getFileSize() > 0xFFFF)
 			throw Exception("Size of medium exceeded permitable size.");
 
-		WORD wFileDataOffset = static_cast<WORD>(offset);
+		WORD wFileDataOffset = static_cast<WORD>(offset) / 2; //Offset in terms of words.
 
 		fileIndexBuffer.write(reinterpret_cast<const char*>(&wFileDataOffset), sizeof(WORD));
 

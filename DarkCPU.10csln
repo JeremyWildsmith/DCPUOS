@@ -8,7 +8,7 @@
   </properties>
   <projects>
     <project path="DARKCPU\DARKCPU.10cproj" />
-    <project path="TestProgram\TestProgram.10cproj" />
     <project path="SHELL\SHELL.10cproj" />
+    <project path="initrd_bootstrap\initrd_bootstrap.10cproj" />
   </projects>
 </solution>
