@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
-<title>NCC DarkCPU: Main Page</title>
+<title>NCC DarkCPU: Device Manager</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -42,8 +42,8 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 </script>
   <div id="navrow1" class="tabs">
     <ul class="tablist">
-      <li class="current"><a href="index.html"><span>Main&#160;Page</span></a></li>
-      <li><a href="pages.html"><span>Related&#160;Pages</span></a></li>
+      <li><a href="index.html"><span>Main&#160;Page</span></a></li>
+      <li class="current"><a href="pages.html"><span>Related&#160;Pages</span></a></li>
       <li><a href="files.html"><span>Files</span></a></li>
       <li>
         <div id="MSearchBox" class="MSearchBoxInactive">
@@ -75,7 +75,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
   </div>
 </div>
 <script type="text/javascript">
-$(document).ready(function(){initNavTree('index.html','');});
+$(document).ready(function(){initNavTree('_device_manager.html','');});
 </script>
 <div id="doc-content">
 <!-- window showing the filter options -->
@@ -94,11 +94,30 @@ $(document).ready(function(){initNavTree('index.html','');});
 
 <div class="header">
   <div class="headertitle">
-<div class="title">NCC DarkCPU Documentation</div>  </div>
+<div class="title">Device Manager </div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><h2>NCC DarkCPU Kernel Image</h2>
-<p>The NCC DarkCPU (project name) Kernel Image is currently under development. If you would like to gather more information about this project, please visit the NCC forums, found at <a href="http://ncc.enjin.com/forum">http://ncc.enjin.com/forum</a> </p>
+<div class="textblock"><h1>Device Manager  DeviceManager</h1>
+<h2>Relavent Code Modules:</h2>
+<p><a class="el" href="device-10c_8c.html">Device Manager</a> <a class="el" href="interrupt-10c_8c.html#InterruptManager">InterruptManager</a></p>
+<h2>A Brief on The Concept of Device Management</h2>
+<p>The kernel implements a device manager to allow drivers to effectivley communicate with peripheral hardware devices. The device manager contains several routines for allocating and gaining exclusive access to a device. The device manager also enables drivers to register a callback routine that will be invoked once the allocated device attempts to communicate with the driver.</p>
+<p>When the kernel device manager module is initialized, it generates list of all peripheral devices attached to the machine. Each entry in this list is stored as a DEVICE_DEVICEENTRY <a class="el" href="_device_manager.html#deviceEntryLayout">deviceEntryLayout</a>. If the handler field is empty, the device is considered to be free, or not allocated.</p>
+<p>Once a device has been allocated by the device manager, it will be mapped to an approriate interrupt message code. The allocating driver must configure its device to raise interrupts using that message code so that its registered callback handler will be invoked when the device raises an interrupt. Mapping the device to any other interrupt message code could cause a system error. The message code for an allocated device can be found by invoknig <a class="el" href="device-10c_8c.html#a231f45e7636a360236ad3241234df4b4">device_getDeviceInterruptMessage</a></p>
+<p><a class="anchor" id="deviceEntryLayout"></a></p>
+<h2>Layout of the DeviceEntry structure</h2>
+<table class="doxtable">
+<tr>
+<th>Offset </th><th>Name </th><th>Description</th></tr>
+<tr>
+<td>DEVICE_DEVICEENTRY_OFFSET_HARDWAREIDLOW </td><td>wHwIdLow </td><td>Low portion of the dword describing the hardware id of the device. </td></tr>
+<tr>
+<td>DEVICE_DEVICEENTRY_OFFSET_HARDWAREIDHIGH </td><td>wHwIdHigh </td><td>High portion of the dword describing the hardware id of the device. </td></tr>
+<tr>
+<td>DEVICE_DEVICEENTRY_OFFSET_HARDWAREVERSION </td><td>wVersion </td><td>The version number of the device. </td></tr>
+<tr>
+<td>DEVICE_DEVICEENTRY_OFFSET_HANDLER </td><td>pHandler </td><td>A pointer to the callback routine which handles interrupts raised by this device, or 0 if the device has not been allocated. </td></tr>
+</table>
 </div></div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->

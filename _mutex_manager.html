@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
-<title>NCC DarkCPU: Main Page</title>
+<title>NCC DarkCPU: Mutexes</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -42,8 +42,8 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 </script>
   <div id="navrow1" class="tabs">
     <ul class="tablist">
-      <li class="current"><a href="index.html"><span>Main&#160;Page</span></a></li>
-      <li><a href="pages.html"><span>Related&#160;Pages</span></a></li>
+      <li><a href="index.html"><span>Main&#160;Page</span></a></li>
+      <li class="current"><a href="pages.html"><span>Related&#160;Pages</span></a></li>
       <li><a href="files.html"><span>Files</span></a></li>
       <li>
         <div id="MSearchBox" class="MSearchBoxInactive">
@@ -75,7 +75,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
   </div>
 </div>
 <script type="text/javascript">
-$(document).ready(function(){initNavTree('index.html','');});
+$(document).ready(function(){initNavTree('_mutex_manager.html','');});
 </script>
 <div id="doc-content">
 <!-- window showing the filter options -->
@@ -94,11 +94,17 @@ $(document).ready(function(){initNavTree('index.html','');});
 
 <div class="header">
   <div class="headertitle">
-<div class="title">NCC DarkCPU Documentation</div>  </div>
+<div class="title">Mutexes </div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><h2>NCC DarkCPU Kernel Image</h2>
-<p>The NCC DarkCPU (project name) Kernel Image is currently under development. If you would like to gather more information about this project, please visit the NCC forums, found at <a href="http://ncc.enjin.com/forum">http://ncc.enjin.com/forum</a> </p>
+<div class="textblock"><h1>Mutexes  MutexManager</h1>
+<h2>Relavent Code Modules:</h2>
+<p><a class="el" href="threading-10c_8c.html#ThreadingManager">ThreadingManager</a> <a class="el" href="mutex-10c_8c.html">Mutexes</a></p>
+<h2>A Brief on The Concept of Mutexes</h2>
+<p>When multiple threads are running along-side one another, it is important to assure that these threads do not access the same resource at the same point in time. As doing so may result in either thread mutating a corrupted resource. To avoid the conflict of multiple threads accessing a single resource at a time, mutex synchronization objects are used. A mutex synchronization object has either one of two states. It is either locked, or unlocked.</p>
+<p>A mutex can be requested to be locked via one of the locking routines. A mutex can only be locked if it is in its unlocked state. If a thread attempts to lock a mutex which is already locked, the thread will idle until the mutex is released by whichever thread was responsible for locking it. Once the mutex is released, the idling thread will be able to lock the mutex and resume on executing.</p>
+<p>Mutexes are very useful for ensuring that a given thread has exclusive access to a resource, however, be very careful when using mutexes as they may cause bugs in your program that are very difficult to locate and reproduce.</p>
+<dl class="section note"><dt>Note</dt><dd>In Dark CPU, when a thread 'idles' it actually just passes control over to the next thread in the queue to avoid wasting CPU time. </dd></dl>
 </div></div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->

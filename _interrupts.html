@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
-<title>NCC DarkCPU: Main Page</title>
+<title>NCC DarkCPU: Interrupts</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -42,8 +42,8 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 </script>
   <div id="navrow1" class="tabs">
     <ul class="tablist">
-      <li class="current"><a href="index.html"><span>Main&#160;Page</span></a></li>
-      <li><a href="pages.html"><span>Related&#160;Pages</span></a></li>
+      <li><a href="index.html"><span>Main&#160;Page</span></a></li>
+      <li class="current"><a href="pages.html"><span>Related&#160;Pages</span></a></li>
       <li><a href="files.html"><span>Files</span></a></li>
       <li>
         <div id="MSearchBox" class="MSearchBoxInactive">
@@ -75,7 +75,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
   </div>
 </div>
 <script type="text/javascript">
-$(document).ready(function(){initNavTree('index.html','');});
+$(document).ready(function(){initNavTree('_interrupts.html','');});
 </script>
 <div id="doc-content">
 <!-- window showing the filter options -->
@@ -94,11 +94,43 @@ $(document).ready(function(){initNavTree('index.html','');});
 
 <div class="header">
   <div class="headertitle">
-<div class="title">NCC DarkCPU Documentation</div>  </div>
+<div class="title">Interrupts </div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><h2>NCC DarkCPU Kernel Image</h2>
-<p>The NCC DarkCPU (project name) Kernel Image is currently under development. If you would like to gather more information about this project, please visit the NCC forums, found at <a href="http://ncc.enjin.com/forum">http://ncc.enjin.com/forum</a> </p>
+<div class="textblock"><h1>Interrupts  InterruptManager</h1>
+<h2>Relavent Code Modules:</h2>
+<p><a class="el" href="interrupt-10c_8c.html#InterruptManager">InterruptManager</a> <a class="el" href="device-10c_8c.html">Device Manager</a></p>
+<h2>A Brief on The Concept of Interrupts</h2>
+<p>Whenever a critical event occurs in the system or when a peripheral device wishes to communicate with the DCPU, an interrupt with a given message code is raised. The currently executing thread is halted and control is passed immediately over to the kernel's interrupt manager to deal with the interrupt.</p>
+<p>There are two catagories of interrupts, both of which require interrupts be enabled for use:</p>
+<ul>
+<li>Software Interrupts<ul>
+<li>Interrupts are raised on a software level. I.e, are raised when the INT instruction is invoked. This is typically used when the software must make the kernel aware of something. Message codes for software interrupts always have their highest 8 bits cleared.</li>
+</ul>
+</li>
+</ul>
+<p><a class="anchor" id="hardwareInterrupts"></a></p>
+<ul>
+<li>Hardware Interrupts<ul>
+<li>Interrupts raised by peripheral hardware. These sorts of interrupts are raised when a device has the intention of communicating with the kernel. I.e, to notify the kernel that the requested sectors have been read from the HMD into memory. All hardware interrupts will have their interrupt codes masked with INTERRUPT_DEVICEMASK, I.e, the highest 8 bits of the interrupt message are always set for a hardware interrupt.</li>
+<li>All hardware interrupts are routed from here to the <a class="el" href="device-10c_8c.html">Device Manager</a> module</li>
+</ul>
+</li>
+</ul>
+<p><a class="anchor" id="softwareInterrupts"></a></p>
+<h2>Software Interrupts Recognized by DarkCPU</h2>
+<table class="doxtable">
+<tr>
+<th>Interrupt Code </th><th>Description</th></tr>
+<tr>
+<td>INTERRUPT_MESSAGE_DEBUGBREAK </td><td>Executes an ISR which returns to the caller immediately. If DarkCPU is running inside of a debugger, a debug breakpoint can be placed on this routine to break the debugger whenever it is called. This allows one to strategically place invokes to this interrupt in areas of code where the debugger in use may not support breakpoints. Useful for debugging user applications loaded into memory at runtime. </td></tr>
+<tr>
+<td>INTERRUPT_MESSAGE_KERNELERROR </td><td>Halts the kernel when it detects an error. Disabling interrupts to prevent damage done to the DCPU </td></tr>
+<tr>
+<td>INTERRUPT_MESSAGE_THREADENDCYCLE </td><td>An interrupt raised by a thread when it has completed its task or wishes to pass control over to the next thread in queue. </td></tr>
+<tr>
+<td>INTERRUPT_MESSAGE_THREADEXCEPTION </td><td>Not yet implemented. Raised when a thread encounters an exception. The kernel will walk through the thread's SEH chain to find an appropriate exception handler. </td></tr>
+</table>
 </div></div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->

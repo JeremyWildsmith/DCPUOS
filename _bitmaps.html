@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
-<title>NCC DarkCPU: Main Page</title>
+<title>NCC DarkCPU: Bitmaps</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -42,8 +42,8 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 </script>
   <div id="navrow1" class="tabs">
     <ul class="tablist">
-      <li class="current"><a href="index.html"><span>Main&#160;Page</span></a></li>
-      <li><a href="pages.html"><span>Related&#160;Pages</span></a></li>
+      <li><a href="index.html"><span>Main&#160;Page</span></a></li>
+      <li class="current"><a href="pages.html"><span>Related&#160;Pages</span></a></li>
       <li><a href="files.html"><span>Files</span></a></li>
       <li>
         <div id="MSearchBox" class="MSearchBoxInactive">
@@ -75,7 +75,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
   </div>
 </div>
 <script type="text/javascript">
-$(document).ready(function(){initNavTree('index.html','');});
+$(document).ready(function(){initNavTree('_bitmaps.html','');});
 </script>
 <div id="doc-content">
 <!-- window showing the filter options -->
@@ -94,11 +94,15 @@ $(document).ready(function(){initNavTree('index.html','');});
 
 <div class="header">
   <div class="headertitle">
-<div class="title">NCC DarkCPU Documentation</div>  </div>
+<div class="title">Bitmaps </div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><h2>NCC DarkCPU Kernel Image</h2>
-<p>The NCC DarkCPU (project name) Kernel Image is currently under development. If you would like to gather more information about this project, please visit the NCC forums, found at <a href="http://ncc.enjin.com/forum">http://ncc.enjin.com/forum</a> </p>
+<div class="textblock"><h1>Bitmaps</h1>
+<h2>Relavent Code Modules:</h2>
+<p><a class="el" href="bitmap-10c_8c.html#Bitmap">Bitmap</a></p>
+<h2>A Brief on The Concept of Bitmaps</h2>
+<p>A bitmap, as the name implies, is a very large array of bits which are mapped to the represent a property of each object in a very large array of objects in memory. It is simply an array of boolean data types only each element in the array only consumes a single bit of memory. If an array of many objects in memory needs to have a particular property of them stored, and that property ranges between only two discrete values, a bitmap can be mapped to this array of objects to represent a this property of each individual object. Using a bitmap will alow us to save lots of space when describing a property for a large array of objects.</p>
+<p>An example of its application would be inside of DarkCPU's memory manager. DarkCPU's memory manager uses a bitmap to describe the state of each individual Memory Chunk in memory. Since there are over a thousand chunks, representing each chunk with a word or a byte of data would cause an excessive waste of memory. Instead, a bitmap is used. Since there are about 1024 memory chunks in memory, and each word is 16 bits, the size of the memory allocation bitmap would only be 64 words in size. </p>
 </div></div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->

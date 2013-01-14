@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
-<title>NCC DarkCPU: Main Page</title>
+<title>NCC DarkCPU: Coding Conventions</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -42,8 +42,8 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 </script>
   <div id="navrow1" class="tabs">
     <ul class="tablist">
-      <li class="current"><a href="index.html"><span>Main&#160;Page</span></a></li>
-      <li><a href="pages.html"><span>Related&#160;Pages</span></a></li>
+      <li><a href="index.html"><span>Main&#160;Page</span></a></li>
+      <li class="current"><a href="pages.html"><span>Related&#160;Pages</span></a></li>
       <li><a href="files.html"><span>Files</span></a></li>
       <li>
         <div id="MSearchBox" class="MSearchBoxInactive">
@@ -75,7 +75,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
   </div>
 </div>
 <script type="text/javascript">
-$(document).ready(function(){initNavTree('index.html','');});
+$(document).ready(function(){initNavTree('_coding_conventions.html','');});
 </script>
 <div id="doc-content">
 <!-- window showing the filter options -->
@@ -94,12 +94,48 @@ $(document).ready(function(){initNavTree('index.html','');});
 
 <div class="header">
   <div class="headertitle">
-<div class="title">NCC DarkCPU Documentation</div>  </div>
+<div class="title">Coding Conventions </div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><h2>NCC DarkCPU Kernel Image</h2>
-<p>The NCC DarkCPU (project name) Kernel Image is currently under development. If you would like to gather more information about this project, please visit the NCC forums, found at <a href="http://ncc.enjin.com/forum">http://ncc.enjin.com/forum</a> </p>
-</div></div><!-- contents -->
+<div class="textblock"><h1>Coding Conventions in DarkCPU</h1>
+<p>In order to maximize code readability and consistency, please adopt the following coding conventions when programming for DarkCPU. If they are not followed the revisions you make may be removed. If you see any implementations which make distracting deviations from the defined coding convention, please make the team aware of it so that it can be addressed as quickly as possible.</p>
+<h2>Label Names</h2>
+<p>When giving a label its a name, it is important that the name be divided into two main components. The first is the name of the parent namespace and the second is a name that accurately describes the purpose of that label. Both components must be named using lower camel-casing. The namespace defines the module name and/or parent function/loop name that the label is being placed inside of and is equal to the name of the parent.</p>
+<p>Consider you have a function that halts the thrusters and belongs to a module named thrusters, and that this function must loop through each thruster attached to the system and halt it. The function might look something like the following: <a class="anchor" id="thrustersSample"></a></p>
+<div class="fragment"><div class="line">thrusters_halt:</div>
+<div class="line">    thrusters_halt_enumThrustersLoop:</div>
+<div class="line">        sub i, 1</div>
+<div class="line">        ...</div>
+<div class="line">        ifn i, 0</div>
+<div class="line">            jmp thrusters_halt_enumThrustersLoop</div>
+<div class="line">        ...</div>
+</div><!-- fragment --><p> A variable that stores the state of the module HMD Driver, might be named as follows </p>
+<div class="fragment"><div class="line">:hmd_driveState</div>
+<div class="line">    dat 0x0000</div>
+</div><!-- fragment --><dl class="section note"><dt>Note</dt><dd>There is a subtle difference to naming labels which point to a memory location as a variable, and naming labels which point to the address of a function. Functions must have their names followed by a colon character. Where as variables must be named such that the colon character preceeds their name. For example, :thisIsAVarialbeLabel and thisIsAFunctionLabel: This is so that when code is parsed by doxygen, it can differentiate variables and functions when generating a documentation.</dd></dl>
+<h2>Mnemonics</h2>
+<p>All mnemonics are to be written in lower-case as this improves their readability and eases the process of writing code. If a conditional instruction is used, its statement of code that executes in the event that the tested condition is true should follow that instruciton and be intended immediately after that instruction. Consider the below example </p>
+<div class="fragment"><div class="line">sub i, 6</div>
+<div class="line">ife i, 3</div>
+<div class="line">    jmp end</div>
+</div><!-- fragment --><p> Notice that the instruction to be executed if the conditional if equal instruction tests true is placed directly beneath the conditional instruction and is indented.</p>
+<h2>Spacing of code</h2>
+<p>Whenever a new namespace is created, there should be a further indent in the code. I.e, if a loop is created, its child code should be indented one more tab than its namespace's label. Refer to the <a class="el" href="_coding_conventions.html#thrustersSample">thrustersSample</a> code sample to see this.</p>
+<p>Code should be spaced such that instructions that focus on achieving a common task are grouped together (instructions are grouped together if they are not divided by an empty newline.) Consider the below code sample:</p>
+<div class="fragment"><div class="line">difference_calculateDifference:</div>
+<div class="line">    _sfBegin()</div>
+<div class="line"></div>
+<div class="line">    ;Calculate the difference in the two given arguments</div>
+<div class="line">    _sfArg(a, 0)</div>
+<div class="line">    _sfArgSub(a, 1)</div>
+<div class="line"></div>
+<div class="line">    ;Now set the header&#39;s difference member to the difference</div>
+<div class="line">    set [b + DIFFERENCE_HEADER_OFFSET_DIF], a</div>
+<div class="line"></div>
+<div class="line">    ;Return to the caller</div>
+<div class="line">    _sfEnd()</div>
+<div class="line">    ret</div>
+</div><!-- fragment --> </div></div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
