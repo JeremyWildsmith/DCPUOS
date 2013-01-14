@@ -97,9 +97,7 @@ $(document).ready(function(){initNavTree('md__lateral_fs.html','');});
 <div class="title">Lateral File System (LAFS) </div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><dl class="section note"><dt>Note</dt><dd>This document is incomplete </dd>
-<dd>
-more efficient method of finding end of directory encouraged.</dd></dl>
+<div class="textblock"><dl class="section note"><dt>Note</dt><dd>This document is incomplete</dd></dl>
 <h2>Relavent Code Modules</h2>
 <p><a class="el" href="vfs-10c_8c.html#VirtualFileSystem">VirtualFileSystem</a></p>
 <h2>Goals</h2>
@@ -154,19 +152,49 @@ more efficient method of finding end of directory encouraged.</dd></dl>
 <p>All entries are organized in a linked list. Each entry can describe a directory, a file, or both a directory and an extention to a file. File extentions are described later.</p>
 <p>Each directory entry corresponds to a name in the String Flat at an index that is the equal to the index of the entry. Further, the entry also corresponds to (i.e, owns) one of the 128 sectors which follows the File Descriptor Flat. The sector this entry owns has an index equal to the index of the entry. That is to say, the entry at index 'x', has its name described in the string flat at index 'x', and owns the sector that is 'x' sectors after the Directory Descriptor Flat. Hence the name "Lateral Filesystem."</p>
 <p>Directory structures (folders, subfolders etc...) are described using a linked list. When an entry of type "directory" is encountered while traversing the linked list of entries, all entries there after describe the files which belong to that folder. If, while traversing the linked list, yet another entry of type "directory" is encountered, all following entries belong to this new folder (which is contained inside of the previously encountered directory.) Directories are terminated with an entry of type "directory" where the TerminateList bit is set.</p>
-<p>An example of this structure is illustrated below using an ascii representation of the file entries (F is file, { is new folder, } is end of folder)</p>
+<p>If a directory contains many files, it can be time consuming to traverse the list to the end of the directory. To avoid wasting time, one may place a "Skip Directory" Skip directories function as any normal directory (i.e, they also link to the next file in the chain) the difference is in their name. A skip directory's name will look like this:</p>
+<table class="doxtable">
+<tr>
+<th>Word # </th><th>Value </th><th>Meaning</th></tr>
+<tr>
+<td>0 </td><td>".\0" </td><td>A period followed by a null terminator. This means that this directory is a skip directory </td></tr>
+<tr>
+<td>1 </td><td>AfterEndNext </td><td>This links to the entry that is just outside of the directory </td></tr>
+<tr>
+<td>2 </td><td>Undefined </td><td>Reserved </td></tr>
+</table>
+<p>A skip directory can be used to skip a directory if the file being looked for is known to not be located inside of that directory.</p>
+<p>An example of this structure is illustrated below using an ascii representation of the file entries (F is file, { is new folder, } is end of folder and ^ is a "Skip Directory Entry")</p>
 <div class="fragment"><div class="line">String Flat:</div>
 <div class="line"><span class="stringliteral">&quot;file01&quot;</span> <span class="stringliteral">&quot;file02&quot;</span> <span class="stringliteral">&quot;fold1&quot;</span> <span class="stringliteral">&quot;fold2&quot;</span> <span class="stringliteral">&quot;file inside of fold1\fold2\&quot; NullName NullName</span></div>
 <div class="line"><span class="stringliteral"></span></div>
-<div class="line"><span class="stringliteral">F F { { F } }</span></div>
-</div><!-- fragment --><p>Also it is critical to note that the directory which terminates the list by having the TerminateList bit set may also be used to describe a new directory, and may also be allocated as a file extention. Otherwise it may simply mark the end of a list of directories. Note though, however, that these entries (those which terminate folders) along with all which define the start of a folder can still be allocated as a file extention as not to waste the sector they own (more on file extentions later)</p>
+<div class="line"><span class="stringliteral">F1 F2 { ^ { F3 } F4 }</span></div>
+</div><!-- fragment --><p>The ^ will have its name (on order of 0th word to 2nd word) as (".\0", [Offset from current entry to F4], reserved)</p>
+<p>Also it is critical to note that the directory which terminates the list by having the TerminateList bit set may also be used to describe a new directory, and may also be allocated as a file extention. Otherwise it may simply mark the end of a list of directories. Note though, however, that these entries (those which terminate folders) along with all which define the start of a folder can still be allocated as a file extention as not to waste the sector they own (more on file extentions later)</p>
 <p>This folder structure allows folders to be very easily and quickly appended to folders of any layer in the filesystem.</p>
 <p>Directory entries of type "file" work exactly as entries which describe folders in the sense that they own a sector and have a corresponding entry in the String Flat with an index equal to their own. Also, like directory entries, each file entry links to another entry to describe the next file in the system. However, the structure of a file entry differs.</p>
 <p>If a file is greater than one sector(I.e it consumes more than the one sector it owns), it must be linked (with the next member) to a file extention entry. Folders can act as both folders and file extention entries and so to locate a file extention, one can either scan for folders which have not yet been allocated as an extentions, or allocate a new entry and use it as a file extention (and if need be later, a folder as well)</p>
 <h1>Data Structures</h1>
 <h2>Boot-Stage 1 Sector</h2>
-<p>The first sector of the storage media</p>
-<p>Super-Block volume name (4 words) cluster size (1 word) reserved (3 words) Number of Directory Flats (can be no larger than (512-8)/8 = 63, total file entries : 8064) Bitmap for first Directory Descrptor Flat (8 words) ... Bitmap for last directory descriptor flat (8 words) Directory Flat Allocation Tables</p>
+<p>The first sector of the storage media is reserved for the first-stage bootloader.</p>
+<h2>Super-Block</h2>
+<p>This is the second sector of the storage media and is reserved for the super block. Immediately following this sector are the Directory Descriptor Flats. The first one describing the root directory.</p>
+<table class="doxtable">
+<tr>
+<th>Name </th><th>Size (words) </th><th>Meaning</th></tr>
+<tr>
+<td>volume name </td><td>4 </td><td>The volume name, padded in null, single byte ascii string. </td></tr>
+<tr>
+<td>reserved </td><td>4 </td><td>Reserved </td></tr>
+<tr>
+<td>DirDescFlatCount </td><td>1 </td><td>Number of directory descriptor flats </td></tr>
+<tr>
+<td>DirDescFlatBitmap </td><td>8 </td><td>Allocation bitmap for first directory descriptor flat </td></tr>
+<tr>
+<td>... </td><td>... </td><td>... </td></tr>
+<tr>
+<td>DirDescFlatBitmap </td><td>8 </td><td>Allocation bitmap for last directory descriptor flat </td></tr>
+</table>
 <h2>Directory Entry Structure for Directory</h2>
 <p>The total size of a directory entry is one word</p>
 <table class="doxtable">
@@ -183,7 +211,7 @@ more efficient method of finding end of directory encouraged.</dd></dl>
 <tr>
 <td>EndExtFlag </td><td>1 bit </td><td>If being accessed as an extention, set if this directory describes the last of a file's extention. </td></tr>
 <tr>
-<td>NextEntry </td><td>6 bit </td><td>Offset in words to next entry if not accessed as extention, or, if LongJumpFlag is set, this is the signed integer of Directory Flats to jump relatie to this one. </td></tr>
+<td>NextEntry </td><td>6 bit </td><td>Offset in words to next entry if not accessed as extention, or, if LongJumpFlag is set, this is the signed integer of Directory Flats to jump relative to this one. </td></tr>
 </table>
 <h2>Directory Entry Structure for a File</h2>
 <table class="doxtable">
@@ -192,14 +220,22 @@ more efficient method of finding end of directory encouraged.</dd></dl>
 <tr>
 <td>DirectoryFlag </td><td>1 bit </td><td>0 = file, 1 = dir </td></tr>
 <tr>
-<td>Trailing Size </td><td>8 bit </td><td>Signed (trailing file size - 1 in mag) / 2 </td></tr>
+<td>TrailingSize </td><td>8 bit </td><td>Signed (trailing file size - 1 in magnitude) / 2 </td></tr>
 <tr>
 <td>ExtentedFlag </td><td>1 bit </td><td>Set if the next entry should be accessed as an extention (i.e, the file is extended) </td></tr>
 <tr>
 <td>NextEntry </td><td>6 bit </td><td>Next entry </td></tr>
 </table>
 <h1>Design Considerations \ Implementation Process</h1>
-<p>It is important to note that traversing through a directory can be an exhausting process, specifically if the directory requires a jump to a different directory descriptor flat. Due to this, all jumps should be located at the end of the chain described in the flat. Further, all directories in general should be placed near the end of the chain.</p>
+<p>It is important to note that traversing through a directory can be an exhausting process, specifically if the directory requires a jump to a different directory descriptor flat. Due to this, all jumps should be located at the end of the chain described in the flat. Further, all directories in general should be placed near the end of the chain. Finally, if a directory is long, a skip directory should be placed wherever possible.</p>
+<h2>Calculating Total Size</h2>
+<p>Calculating the total size explicitly may not be required, since the trailing size can be used to determined how many bytes of the last sector are owned by the file.</p>
+<p>However the total size of a file is as follows:</p>
+<p>(1 + number of next entries)*512 + 256 + Trailing Size (noting that trailing size is a signed number)</p>
+<p>Also note that the TrailingSize member of a file entry is actually TrailingSizeNOT to get TrailingSize from TrailingSizeNOT:</p>
+<p>TrailingSize = (TrailingSizeNOT + 1 in magnitude) * 2</p>
+<h2>Isolating Busy Directories to get the most of LAFS</h2>
+<p>One of the key features of LAFS is that it allows you to isolate busy directories of your filesystem. And further, easily cache and thus optimize access to these specific ioslated regions of your filesystem. It is thus encouraged to use long jump directories to isolate the root directory from other busy directories. If your directory structures are small, it may be more optimal to do the reverse (that is, isolate your less busy and potentially larger directories.) This filesystem has yet to be implemented and tweaked, so the specifics on that are not yet known.</p>
 <h2>Locating a free file entry</h2>
 <p>(algorithm here)</p>
 <h2>Locating a free file extention</h2>
@@ -209,7 +245,7 @@ more efficient method of finding end of directory encouraged.</dd></dl>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Mon Jan 14 2013 00:25:40 for NCC DarkCPU by
+    <li class="footer">Generated on Mon Jan 14 2013 12:51:51 for NCC DarkCPU by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.2 </li>
   </ul>
