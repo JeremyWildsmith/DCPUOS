@@ -18,5 +18,6 @@ var searchData=
   ['device_5finit',['device_init',['../device-10c_8c.html#a811bf83f91422a12605214335366a38d',1,'device-10c.c']]],
   ['device_5finterrupthandler',['device_interruptHandler',['../device-10c_8c.html#a4f15691d418eafc497b90ffba6c38ddf',1,'device-10c.c']]],
   ['device_20manager',['Device Manager',['../_device_manager.html',1,'']]],
-  ['darkcpu_20boot_20procedure',['DarkCPU Boot Procedure',['../md__boot_procedure.html',1,'']]]
+  ['darkcpu_20boot_20procedure',['DarkCPU Boot Procedure',['../md__boot_procedure.html',1,'']]],
+  ['darkos_20formatter',['DarkOs Formatter',['../md__dark_os_formatter.html',1,'']]]
 ];

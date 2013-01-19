@@ -1,9 +1,11 @@
 var NAVTREE =
 [
-  [ "NCC DarkCPU", "index.html", [
+  [ "DarkCPU", "index.html", [
     [ "Bitmaps", "_bitmaps.html", null ],
+    [ "BitMap Allocation Table File System (BMAT)", "md__b_m_a_t.html", null ],
     [ "DarkCPU Boot Procedure", "md__boot_procedure.html", null ],
     [ "Kernel Clock Driver", "kernel_clock.html", null ],
+    [ "DarkOs Formatter", "md__dark_os_formatter.html", null ],
     [ "Device Manager", "_device_manager.html", null ],
     [ "Initial Ramdisk", "md_initrd.html", null ],
     [ "Interrupts", "_interrupts.html", null ],

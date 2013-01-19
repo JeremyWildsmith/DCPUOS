@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
-<title>NCC DarkCPU: Lateral File System (LAFS)</title>
+<title>DarkCPU: Lateral File System (LAFS)</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -26,9 +26,9 @@
 <table cellspacing="0" cellpadding="0">
  <tbody>
  <tr style="height: 56px;">
-  <td id="projectlogo"><img alt="Logo" src="large.png"/></td>
+  <td id="projectlogo"><img alt="Logo" src="large.png.bkp"/></td>
   <td style="padding-left: 0.5em;">
-   <div id="projectname">NCC DarkCPU
+   <div id="projectname">DarkCPU
    </div>
   </td>
  </tr>
@@ -97,34 +97,30 @@ $(document).ready(function(){initNavTree('md__lateral_fs.html','');});
 <div class="title">Lateral File System (LAFS) </div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><dl class="section note"><dt>Note</dt><dd>This document is incomplete</dd></dl>
+<div class="textblock"><dl class="section note"><dt>Note</dt><dd>This standard has not been finalized.</dd></dl>
 <h2>Relavent Code Modules</h2>
 <p><a class="el" href="vfs-10c_8c.html#VirtualFileSystem">VirtualFileSystem</a></p>
 <h2>Goals</h2>
 <ul>
 <li>Reduce read operations required by storage volume to traverse filesystem structure (i.e, lookup file contained in several layers of filesystem)</li>
-<li>Allow easy prioritizing of filesystem caching (isolate specific directory structures which are more frequently accessed and optimize this portion in a memory cache)</li>
-<li>Remain conscious of DCPU's memory limitations and optimize process of caching with this in mind</li>
+<li>Remain conscious of DCPU's memory limitations and optimize process of caching with this in mind.</li>
 <li>Allow smaller filesystems to operate at a highly optimal rate without sacrificing scalability</li>
-<li>Allow filesystem to remain as predictable and contiguous as possible.</li>
 </ul>
 <h2>Advantages</h2>
 <ul>
-<li>Due to the directory entry structure, file data can overlap directory data. That is to say, a directory entry can describe both a directory and further describe the structure of a file. Allowing for more efficient use of space.</li>
+<li>File data can overlap directory data. Allowing for more efficient use of space.</li>
 <li>All entries have a known sector allocated for them and are very predictable in nature.</li>
-<li>Directory flats can be very easily placed into memory.</li>
-<li>128 entries can be cached and easily traversed with an allocation of only one 512 word buffer. Small filesystems will benifit greatly from this. Larger filesystems will need additional memory buffers to maintain look-up times.</li>
-<li>Efficient on filesystems where files are under 3 or 4 sectors in length</li>
-<li>Quick to search filesystem due to string flat arrangement.</li>
+<li>128 entries can be cached and easily traversed with an allocation of only one 512 word buffer. Small filesystems will benifit greatly from this. Larger filesystems will need additional memory buffers to maintain look-up times. This means virtually price-less look-up times.</li>
+<li>Directory structures can be isolated and easily prioritized.</li>
+<li>The filesystem allows for optional metasectors, used store metadata date or user permissions.</li>
 </ul>
 <h2>Disadvantages</h2>
 <ul>
-<li>Due to tight size restrictions, the size of a file is only accurate to a resolution of 2 words (4 bytes). While this does not waste space per se, it forces files to align their size to 2 words (i.e, this does not force files to overflow onto another sector.)</li>
-<li>There is no room for metadata, such as user access permissions or date the file was created accessed.</li>
-<li>Support is limited to strictly two types of entries, directories or files. There is no support for symbolic links or more advanced structures present in the FAT16 fs.</li>
-<li>Due to the limitation in length of the extended next entry (6bits) file extentions cannot be further than 63 sectors apart.</li>
-<li>Less efficient when majority of files exceed 5 or 6 sectors in length. Efficiency will decay with many larger files</li>
+<li>Size of a file is only accurate to a resolution of 2 words (4 bytes).</li>
+<li>No support for symbolic links or more advanced filesystem structures.</li>
+<li>Files cannot be easily scattered accross sectors further than 31 sectors apart. With efficient chaining, this limitation can be worked around.</li>
 <li>Names limited to single byte ascii, with a length of 6 characters.</li>
+<li>Max file storage per directory descriptor flat is 128 sector, 131072 bytes (65536 words)</li>
 </ul>
 <h1>Filesystem structure</h1>
 <p>The filesystem is laid out as follows</p>
@@ -134,7 +130,7 @@ $(document).ready(function(){initNavTree('md__lateral_fs.html','');});
 <tr>
 <td>Boot Code </td><td>512 </td><td>Contains code for the first stage bootloader. </td></tr>
 <tr>
-<td>Super Block </td><td>512 </td><td>Contains basic information about filesystem, and bitmaps for Directory Descriptor Flats </td></tr>
+<td>Super Block </td><td>512 </td><td>Contains basic information about filesystem, and bitmaps for Allocation of entries in the Directory Descriptor Flats </td></tr>
 <tr>
 <td>First Directory Descriptor Flat </td><td>128*512 + 512 </td><td>First directory flat in filesystem </td></tr>
 <tr>
@@ -143,37 +139,64 @@ $(document).ready(function(){initNavTree('md__lateral_fs.html','');});
 <td>Last Directory Descriptor Flat </td><td>128*512 + 512 </td><td>Last directory flat in filesystem </td></tr>
 </table>
 <h1>String Flat</h1>
-<p>Is a series of 6 byte (3 word) single byte ascii strings, padded with null. A string flat is placed with a series of directory entries, and describes the name of each directory entry in parallel. I.e, entry 0 in the directory list will have a name which corresponds to the first entry of the string flat which accompanies it.</p>
+<p>The StringFlat is a series of 6 byte (3 word) single byte ascii strings, padded with null. A string flat is placed with a series of directory entries, and describes the name of each directory entry in parallel. I.e, entry 0 in the directory list will have a name which corresponds to the first entry of the string flat which accompanies it.</p>
 <h1>Directory Descriptor Flat</h1>
-<p>A directory descriptor flat is a portion on the storage consiting of a series of directory entries proceeded with what is called a string flat, which describes, in parallel, the name of each directory entry. The size of a directory flat and its string flat must equal to the size of a single sector.</p>
+<p>A directory descriptor flat is a portion on the storage consiting of a series of directory entries proceeded with a string flat, which describes, in parallel, the name of each directory entry. The size of a directory flat and its string flat must equal to the size of a single sector.</p>
 <p>Solving for the system: x + 3x = 512, defines a total of 128 directory entries per a directory flat.</p>
 <p>The number of directory flats present in a file system is to be determined when the volume is formatted and placed in the super block. Each directory flat is followed by 128 adjacent sectors allocated for files in the flat.</p>
 <h1>Structure of Entries</h1>
 <p>All entries are organized in a linked list. Each entry can describe a directory, a file, or both a directory and an extention to a file. File extentions are described later.</p>
+<h2>Directory Entries</h2>
 <p>Each directory entry corresponds to a name in the String Flat at an index that is the equal to the index of the entry. Further, the entry also corresponds to (i.e, owns) one of the 128 sectors which follows the File Descriptor Flat. The sector this entry owns has an index equal to the index of the entry. That is to say, the entry at index 'x', has its name described in the string flat at index 'x', and owns the sector that is 'x' sectors after the Directory Descriptor Flat. Hence the name "Lateral Filesystem."</p>
-<p>Directory structures (folders, subfolders etc...) are described using a linked list. When an entry of type "directory" is encountered while traversing the linked list of entries, all entries there after describe the files which belong to that folder. If, while traversing the linked list, yet another entry of type "directory" is encountered, all following entries belong to this new folder (which is contained inside of the previously encountered directory.) Directories are terminated with an entry of type "directory" where the TerminateList bit is set.</p>
-<p>If a directory contains many files, it can be time consuming to traverse the list to the end of the directory. To avoid wasting time, one may place a "Skip Directory" Skip directories function as any normal directory (i.e, they also link to the next file in the chain) the difference is in their name. A skip directory's name will look like this:</p>
+<h2>Directory Entries For Folders</h2>
+<p>Directory structures (folders, subfolders etc...) are described using a linked list. When an entry of type "directory" is encountered while traversing the linked list of entries, all entries there after describe the files which belong to that folder. If, while traversing the linked list, yet another entry of type "directory" is encountered, all following entries belong to this new folder (which is contained inside of the previously encountered directory.) Immediately after the entry which marks the start of a directory is yet another which is called a skip directory.</p>
+<h2>Skip Directories</h2>
+<p>Skip directories behave exactly as normal directories and their next member links to the first entry in the directory, only their name field is as described below:</p>
 <table class="doxtable">
 <tr>
 <th>Word # </th><th>Value </th><th>Meaning</th></tr>
 <tr>
 <td>0 </td><td>".\0" </td><td>A period followed by a null terminator. This means that this directory is a skip directory </td></tr>
 <tr>
-<td>1 </td><td>AfterEndNext </td><td>This links to the entry that is just outside of the directory </td></tr>
+<td>1 </td><td>LastFile </td><td>Offset to the last entry of a directory. Signed offset </td></tr>
 <tr>
-<td>2 </td><td>Undefined </td><td>Reserved </td></tr>
+<td>2 </td><td></td><td>Reserved </td></tr>
 </table>
-<p>A skip directory can be used to skip a directory if the file being looked for is known to not be located inside of that directory.</p>
-<p>An example of this structure is illustrated below using an ascii representation of the file entries (F is file, { is new folder, } is end of folder and ^ is a "Skip Directory Entry")</p>
-<div class="fragment"><div class="line">String Flat:</div>
-<div class="line"><span class="stringliteral">&quot;file01&quot;</span> <span class="stringliteral">&quot;file02&quot;</span> <span class="stringliteral">&quot;fold1&quot;</span> <span class="stringliteral">&quot;fold2&quot;</span> <span class="stringliteral">&quot;file inside of fold1\fold2\&quot; NullName NullName</span></div>
-<div class="line"><span class="stringliteral"></span></div>
-<div class="line"><span class="stringliteral">F1 F2 { ^ { F3 } F4 }</span></div>
-</div><!-- fragment --><p>The ^ will have its name (on order of 0th word to 2nd word) as (".\0", [Offset from current entry to F4], reserved)</p>
-<p>Also it is critical to note that the directory which terminates the list by having the TerminateList bit set may also be used to describe a new directory, and may also be allocated as a file extention. Otherwise it may simply mark the end of a list of directories. Note though, however, that these entries (those which terminate folders) along with all which define the start of a folder can still be allocated as a file extention as not to waste the sector they own (more on file extentions later)</p>
-<p>This folder structure allows folders to be very easily and quickly appended to folders of any layer in the filesystem.</p>
+<p>Skip directories must be placed immediately after the start of a directory.</p>
+<p>The end of a directory is reached when the last member in a directory has an index equal to the index of the skip directory plus the skip directories LastFile offset. I.e, it is the last entry in a directory if it is referenced by the skip directories LastFile offset. The last entry of a directory must link to the next entry in the filesystem.</p>
+<h2>Example Directory Structure</h2>
+<p>An example of this structure is illustrated below using an ascii representation of the file entries (F is file, { is new folder, and ^ is a Skip Directory Entry)</p>
+<p>Pay close attention to the string table, the entry table and the sectors following the File Directory Descriptor Flat.</p>
+<div class="fragment"><div class="line">String Flat (ignore the name limit, <span class="keyword">this</span> is just a demonstration):</div>
+<div class="line">(<span class="stringliteral">&quot;file01&quot;</span>)</div>
+<div class="line">(<span class="stringliteral">&quot;file02&quot;</span>)</div>
+<div class="line">(<span class="stringliteral">&quot;fold1&quot;</span>)</div>
+<div class="line">(<span class="stringliteral">&quot;.\0&quot;</span>, Offset to F5, 0)</div>
+<div class="line">(<span class="stringliteral">&quot;File03 inside of fold1&quot;</span>)</div>
+<div class="line">(<span class="stringliteral">&quot;File04 inside of fold1&quot;</span>) (<span class="stringliteral">&quot;File05, outside of fold1 and in root dir&quot;</span>)</div>
+<div class="line">...</div>
+<div class="line"></div>
+<div class="line">Directory Flat</div>
+<div class="line">F1 &lt;links to&gt; F2 &lt;links to&gt; { &lt;links to&gt; ^ &lt;links to&gt; F3 &lt;links to&gt; F4 &lt;links to&gt; F5 &lt;links to&gt; ...</div>
+<div class="line"></div>
+<div class="line">Sectors following the Flat</div>
+<div class="line">Sector owned by file one</div>
+<div class="line">sector owned by file two</div>
+<div class="line">sector owned by folder1 (can be used as file extention)</div>
+<div class="line">Sector owned by skip directory (can be used as file extention)</div>
+<div class="line">Sector owned by File3</div>
+<div class="line">Sector owned by file4</div>
+<div class="line">Sector owned by file5</div>
+<div class="line">...</div>
+</div><!-- fragment --><h2>Directory Entries for Files</h2>
 <p>Directory entries of type "file" work exactly as entries which describe folders in the sense that they own a sector and have a corresponding entry in the String Flat with an index equal to their own. Also, like directory entries, each file entry links to another entry to describe the next file in the system. However, the structure of a file entry differs.</p>
-<p>If a file is greater than one sector(I.e it consumes more than the one sector it owns), it must be linked (with the next member) to a file extention entry. Folders can act as both folders and file extention entries and so to locate a file extention, one can either scan for folders which have not yet been allocated as an extentions, or allocate a new entry and use it as a file extention (and if need be later, a folder as well)</p>
+<p>If a file is greater than one sector (I.e it consumes more than the one sector it owns), it must be linked (with the next member) to a file extention entry. Folders and skip directories can act as both folders and file extention entries and so to locate a file extention, one can either scan for folders which have not yet been allocated as an extentions, or allocate a new entry and use it as a file extention (and if need be later, a folder as well)</p>
+<h2>Long Jump Directories</h2>
+<p>A long jump directory allows for the next entry to be located on a seperate directory descriptor flat. This allows you to easily isolate your directories and reference your directory structures from different descriptor flats. If a directory entry's LongJumpFlag is set, the next entry defines a relative directory descriptor flat containing the remaining members of that directory.</p>
+<dl class="section warning"><dt>Warning</dt><dd>It is highly suggested that long jumps only be done with skip directories since doing so with a regular directory would force the implementation of the filesystem to traverse via a different directory descriptor flat (which may be expensive) to get to the skip directory.</dd></dl>
+<h2>Meta Sectors</h2>
+<p>Meta Sectors are sectors which preceed each directory descriptor flat containing metadata about the directory descriptor flat. These are not standardized and the filesystem is expected to function if the contents of these sectors are unknown. I.e, these sectors cannot contain data critical to the function of the filesystem.</p>
+<dl class="section warning"><dt>Warning</dt><dd>Later revisions to LAFS will standardize metasectors.</dd></dl>
 <h1>Data Structures</h1>
 <h2>Boot-Stage 1 Sector</h2>
 <p>The first sector of the storage media is reserved for the first-stage bootloader.</p>
@@ -183,9 +206,15 @@ $(document).ready(function(){initNavTree('md__lateral_fs.html','');});
 <tr>
 <th>Name </th><th>Size (words) </th><th>Meaning</th></tr>
 <tr>
-<td>volume name </td><td>4 </td><td>The volume name, padded in null, single byte ascii string. </td></tr>
+<td>LAFS Signature </td><td>2 </td><td>'lafs' little endia dword </td></tr>
 <tr>
-<td>reserved </td><td>4 </td><td>Reserved </td></tr>
+<td>Version </td><td>1 </td><td>High byte is major, low byte is minor (1.0) </td></tr>
+<tr>
+<td>Initial Flat </td><td>1 </td><td>Index of initial flat. </td></tr>
+<tr>
+<td>MetaSectors </td><td>1 </td><td>Flags describing which metasectors are present </td></tr>
+<tr>
+<td>reserved </td><td>3 </td><td>Reserved </td></tr>
 <tr>
 <td>DirDescFlatCount </td><td>1 </td><td>Number of directory descriptor flats </td></tr>
 <tr>
@@ -196,38 +225,48 @@ $(document).ready(function(){initNavTree('md__lateral_fs.html','');});
 <td>DirDescFlatBitmap </td><td>8 </td><td>Allocation bitmap for last directory descriptor flat </td></tr>
 </table>
 <h2>Directory Entry Structure for Directory</h2>
-<p>The total size of a directory entry is one word</p>
 <table class="doxtable">
 <tr>
 <th>Member Name </th><th>Size </th><th>Definition</th></tr>
 <tr>
-<td>DirectoryFlag </td><td>1 bit </td><td>0 = file, 1 = dir </td></tr>
+<td>FileFlag </td><td>1 bit </td><td>0 = file, 1 = directory </td></tr>
 <tr>
-<td>ExtendedNext </td><td>6 bit </td><td>Next entry if accessed as extention. If 0, this dir is not allocated as an extention. </td></tr>
+<td>ExtendedNextSign </td><td>1 bit </td><td>1 = jump back, 0 = jump forward </td></tr>
 <tr>
-<td>TerminateList </td><td>1 bit </td><td>If set, the directory terminates the containing list. </td></tr>
-<tr>
-<td>LongJumpFlag </td><td>1 bit </td><td>Set if NextEntry describes a directory descriptor flat (relative to the current one) </td></tr>
+<td>ExtendedNext </td><td>5 bit </td><td>Next entry if accessed as extention. If 0, this directory is not allocated as an extention </td></tr>
 <tr>
 <td>EndExtFlag </td><td>1 bit </td><td>If being accessed as an extention, set if this directory describes the last of a file's extention. </td></tr>
 <tr>
-<td>NextEntry </td><td>6 bit </td><td>Offset in words to next entry if not accessed as extention, or, if LongJumpFlag is set, this is the signed integer of Directory Flats to jump relative to this one. </td></tr>
+<td>LongJumpFlag </td><td>1 bit </td><td>Set if NextEntry describes a directory descriptor flat (relative to the current one) </td></tr>
+<tr>
+<td>reserved </td><td>1 bit </td><td>reserved </td></tr>
+<tr>
+<td>NextEntrySign </td><td>1 bit </td><td>1 = jump back, 0 = jump forward. </td></tr>
+<tr>
+<td>NextEntry </td><td>5 bit </td><td>Magnitude of offset in words to next entry if not accessed as extention (direction determined by next sign bit) </td></tr>
 </table>
 <h2>Directory Entry Structure for a File</h2>
 <table class="doxtable">
 <tr>
 <th>Member Name </th><th>Size </th><th>Definition</th></tr>
 <tr>
-<td>DirectoryFlag </td><td>1 bit </td><td>0 = file, 1 = dir </td></tr>
+<td>DirectoryFlag </td><td>1 bit </td><td>0 = file, 1 = directory </td></tr>
 <tr>
-<td>TrailingSize </td><td>8 bit </td><td>Signed (trailing file size - 1 in magnitude) / 2 </td></tr>
+<td>TrailingSizeSign </td><td>1 bit </td><td>1 = negative trailing size, 0 = positive trailing size. </td></tr>
+<tr>
+<td>TrailingSize </td><td>7 bit </td><td>(trailing file size - 1 in magnitude) / 2 </td></tr>
 <tr>
 <td>ExtentedFlag </td><td>1 bit </td><td>Set if the next entry should be accessed as an extention (i.e, the file is extended) </td></tr>
 <tr>
-<td>NextEntry </td><td>6 bit </td><td>Next entry </td></tr>
+<td>NextEntrySign </td><td>1 bit </td><td>1 = jump back, 0 = jump forward. </td></tr>
+<tr>
+<td>NextEntry </td><td>5 bit </td><td>Signed offset to next entry </td></tr>
 </table>
 <h1>Design Considerations \ Implementation Process</h1>
-<p>It is important to note that traversing through a directory can be an exhausting process, specifically if the directory requires a jump to a different directory descriptor flat. Due to this, all jumps should be located at the end of the chain described in the flat. Further, all directories in general should be placed near the end of the chain. Finally, if a directory is long, a skip directory should be placed wherever possible.</p>
+<h2>Offset Wrapping</h2>
+<p>If the offset exceeds the bounds of a directory descriptor flat, it re-enters on the opposing boundary. That is to say if an entry at index 0 claims its next entry is at an offset of -31, and there are 128 entries per flat, the calculated next entry would be at index (127-31=96). On the opposite boundary, the same holds true. I.e if an entry at index 127 has an offset of 31, its next entry would be located at index 30.</p>
+<h2>Appending to directories</h2>
+<p>Directories are quick to append to, you must first adjust the next entry of the last entry of a directory (found by using the directory's jump entry) and then you need to update the jump entry.</p>
 <h2>Calculating Total Size</h2>
 <p>Calculating the total size explicitly may not be required, since the trailing size can be used to determined how many bytes of the last sector are owned by the file.</p>
 <p>However the total size of a file is as follows:</p>
@@ -235,17 +274,13 @@ $(document).ready(function(){initNavTree('md__lateral_fs.html','');});
 <p>Also note that the TrailingSize member of a file entry is actually TrailingSizeNOT to get TrailingSize from TrailingSizeNOT:</p>
 <p>TrailingSize = (TrailingSizeNOT + 1 in magnitude) * 2</p>
 <h2>Isolating Busy Directories to get the most of LAFS</h2>
-<p>One of the key features of LAFS is that it allows you to isolate busy directories of your filesystem. And further, easily cache and thus optimize access to these specific ioslated regions of your filesystem. It is thus encouraged to use long jump directories to isolate the root directory from other busy directories. If your directory structures are small, it may be more optimal to do the reverse (that is, isolate your less busy and potentially larger directories.) This filesystem has yet to be implemented and tweaked, so the specifics on that are not yet known.</p>
-<h2>Locating a free file entry</h2>
-<p>(algorithm here)</p>
-<h2>Locating a free file extention</h2>
-<p>(algorithm here) </p>
+<p>One of the key features of LAFS is that it allows you to isolate busy directories of your filesystem. And further, easily cache and thus optimize access to these specific ioslated regions of your filesystem. It is thus encouraged to use long jump skip directories to isolate the root directory from other busy directories. If your directory structures are small, it may be more optimal to do the reverse (that is, isolate your less busy and potentially larger directories.) </p>
 </div></div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Mon Jan 14 2013 12:51:51 for NCC DarkCPU by
+    <li class="footer">Generated on Sat Jan 19 2013 05:26:25 for DarkCPU by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.2 </li>
   </ul>

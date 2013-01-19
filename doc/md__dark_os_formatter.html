@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
-<title>DarkCPU: BitMap Allocation Table File System (BMAT)</title>
+<title>DarkCPU: DarkOs Formatter</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -75,7 +75,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
   </div>
 </div>
 <script type="text/javascript">
-$(document).ready(function(){initNavTree('md__b_m_a_t.html','');});
+$(document).ready(function(){initNavTree('md__dark_os_formatter.html','');});
 </script>
 <div id="doc-content">
 <!-- window showing the filter options -->
@@ -94,89 +94,12 @@ $(document).ready(function(){initNavTree('md__b_m_a_t.html','');});
 
 <div class="header">
   <div class="headertitle">
-<div class="title">BitMap Allocation Table File System (BMAT) </div>  </div>
+<div class="title">DarkOs Formatter </div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><h2>Relavent Code Modules</h2>
-<p><a class="el" href="vfs-10c_8c.html#VirtualFileSystem">VirtualFileSystem</a></p>
-<h2>Purpose</h2>
-<p>The BMAT filesystem serves as a primary read filesystem.</p>
-<p>Purpose of Filesystem:</p>
-<ul>
-<li>Keep the filesystem as simple &amp; fast as possible while allowing for efficient write operations.</li>
-<li>Maintain a straightforward objective, which is to maintain only a system of files, and to allow the containing storage media to act as the primary boot device.</li>
-<li>The filesystem is very quickly indexable, with the idea of system memory &amp; slow read times in mind.</li>
-</ul>
-<p>Due to the purpose:</p>
-<ul>
-<li>All data (including file data sections) is aligned in words.</li>
-<li>File properties remain as primitive as possible.</li>
-</ul>
-<h2>Layout of a RSFS filesystem:</h2>
-<dl class="section note"><dt>Note</dt><dd>sufficient description yet to be added here.</dd></dl>
-<h2>Directory Flats:</h2>
-<p>A directory flat is a entire sector consisting of a list of directory entries which describe the filesystem. At the end of every directory flat is a special reserved directory entry referred to as a jump, which links directory flats together.</p>
-<h2>Directory Entry Flags:</h2>
-<table class="doxtable">
-<tr>
-<th>Directory Entry Type </th><th>Value </th><th>Descrition</th></tr>
-<tr>
-<td>JUMP </td><td>0x1001 </td><td>Symbolizes a jump type directory entry </td></tr>
-<tr>
-<td>DIRECTORY </td><td>0x1002 </td><td>The directory entry describes a directory </td></tr>
-</table>
-<h2>Definitions:</h2>
-<table class="doxtable">
-<tr>
-<th>Names </th><th>Value </th><th>Descrition</th></tr>
-<tr>
-<td>RSFS_ENTRYTYPE_FILE </td><td>1 </td><td>Value of the wType field in the File/Directory entry when the entry describes a file. </td></tr>
-<tr>
-<td>RSFS_ENTRYTYPE_DIRECTORY </td><td>2 </td><td>Value of the wType field in the File/Directory entry when the entry describes a directory. </td></tr>
-<tr>
-<td>RSFS_HEADER_SIZE </td><td>2 </td><td>The size, in words, of the superblock header. </td></tr>
-<tr>
-<td>RSFS_NAME_SIZE </td><td>5 </td><td>The size, in words, of the name field of a File entry. </td></tr>
-<tr>
-<td>RSFS_FILEENTRY_SIZE </td><td>8 </td><td>The total size of a file entry, in words. </td></tr>
-<tr>
-<td>RSFS_DIRECTORYENTRY_SIZE </td><td>8 </td><td>The total size of a directory entry, in words. </td></tr>
-</table>
-<h2>Super-Block</h2>
-<table class="doxtable">
-<tr>
-<th>Offset (WORDS) </th><th>Name </th><th>Description</th></tr>
-<tr>
-<td>0 </td><td>wSpecVersion </td><td>Version number of the RSFS spec implementation </td></tr>
-<tr>
-<td>1 </td><td>wNumRootEntries </td><td>Number of root entries </td></tr>
-</table>
-<h2>File Entry</h2>
-<table class="doxtable">
-<tr>
-<th>Offset (WORDS) </th><th>Name </th><th>Description</th></tr>
-<tr>
-<td>0 </td><td>wType </td><td>Entry Type equal to RSFS_FILENTRY_TYPE_FILE </td></tr>
-<tr>
-<td>1 </td><td>fileName </td><td>Name of the file, including the directory (eg folder/subfolder/myfile.txt) In multi-byte ascii format. Null terminated. 5 words in size </td></tr>
-<tr>
-<td>6 </td><td>wSize </td><td>The size of the file, in bytes </td></tr>
-<tr>
-<td>7 </td><td>wDataOffset </td><td>offset from the ramdisk origin where the data for this file resides, in words </td></tr>
-</table>
-<h2>Directory Entry</h2>
-<table class="doxtable">
-<tr>
-<th>Offset (WORDS) </th><th>Name </th><th>Description</th></tr>
-<tr>
-<td>0 </td><td>wType </td><td>Entry Type equal to RSFS_FILENTRY_TYPE_DIRECTORY </td></tr>
-<tr>
-<td>1 </td><td>folderName </td><td>Name of the file, including the directory (eg folder/subfolder/myfile.txt) In multi-byte ascii format. Null terminated. 5 words in size </td></tr>
-<tr>
-<td>6 </td><td>wNumEntries </td><td>Number of entries in the directory. </td></tr>
-<tr>
-<td>7 </td><td>wReserved </td><td>Padding for fast indexing </td></tr>
-</table>
+<div class="textblock"><h2>Formatting RSFS volumes</h2>
+<h2>Formatting LAFS volumes</h2>
+<p>Limitations: Does not format volumes larger than 1024 bytes in size. </p>
 </div></div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->
