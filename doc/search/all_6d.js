@@ -1,30 +1,4 @@
 var searchData=
 [
-  ['main',['main',['../main-10c_8c.html#a6288eba0f8e8ad3ab1544ad731eb7667',1,'main-10c.c']]],
-  ['main_2d10c_2ec',['main-10c.c',['../main-10c_8c.html',1,'']]],
-  ['module_20specification_20hashes',['Module Specification Hashes',['../md__m_d5_spec_hash.html',1,'']]],
-  ['memory_20manager',['Memory Manager',['../_memory.html',1,'']]],
-  ['memory_2d10c_2ec',['memory-10c.c',['../memory-10c_8c.html',1,'']]],
-  ['memory_5faccessmutex',['memory_accessMutex',['../memory-10c_8c.html#a25c5cb14bec444b1f5ec85b33347396a',1,'memory-10c.c']]],
-  ['memory_5fallocate',['memory_allocate',['../memory-10c_8c.html#a2904e6706f052819bd3ac779f2979c52',1,'memory-10c.c']]],
-  ['memory_5fallocationbitmap',['memory_allocationBitmap',['../memory-10c_8c.html#a64af9302970399e6ada5588b6856216f',1,'memory-10c.c']]],
-  ['memory_5fallocationbitmap_5fsize',['MEMORY_ALLOCATIONBITMAP_SIZE',['../memory-10c_8c.html#ac4b235bbcfe5abb97d5fa126710a5be0',1,'memory-10c.c']]],
-  ['memory_5fchunk_5flastindex',['MEMORY_CHUNK_LASTINDEX',['../memory-10c_8c.html#ae8ae0c80577ab2845ce96fd8b1d70378',1,'memory-10c.c']]],
-  ['memory_5fchunk_5fsize',['MEMORY_CHUNK_SIZE',['../memory-10c_8c.html#ab27273ecae70845cfcdd5da3b6aabba0',1,'memory-10c.c']]],
-  ['memory_5fcopy',['memory_copy',['../memory-10c_8c.html#a939ab1ae0086c891150720c487b35667',1,'memory-10c.c']]],
-  ['memory_5ffree',['memory_free',['../memory-10c_8c.html#a720e95f776e605544d0fb71518857a6f',1,'memory-10c.c']]],
-  ['memory_5finit',['memory_init',['../memory-10c_8c.html#a34f25b1ca1556d0890274a971d46af10',1,'memory-10c.c']]],
-  ['memory_5fmax_5fchunks',['MEMORY_MAX_CHUNKS',['../memory-10c_8c.html#af091671773e29dfe74c5474565a6981d',1,'memory-10c.c']]],
-  ['memory_5freserve',['memory_reserve',['../memory-10c_8c.html#ac167dc8a0296c9e6a3c032db659b23e6',1,'memory-10c.c']]],
-  ['mutex_2d10c_2ec',['mutex-10c.c',['../mutex-10c_8c.html',1,'']]],
-  ['mutex_5fcreate',['mutex_create',['../mutex-10c_8c.html#a9dabf5f9b6aa65d30f64ffa2fbea2455',1,'mutex-10c.c']]],
-  ['mutex_5fdestroy',['mutex_destroy',['../mutex-10c_8c.html#a00d26a2c856a772d162760d418cbfb73',1,'mutex-10c.c']]],
-  ['mutex_5finvalidmutex',['MUTEX_INVALIDMUTEX',['../mutex-10c_8c.html#a0485b56d7e104922f3f2618711574293',1,'mutex-10c.c']]],
-  ['mutex_5flock',['mutex_lock',['../mutex-10c_8c.html#a1ee53e4a8b14b1b225b7e0ac6c0edf2e',1,'mutex-10c.c']]],
-  ['mutex_5fmutexallocationtable',['mutex_mutexAllocationTable',['../mutex-10c_8c.html#a398eee28ac6474762138aee9454ca7b7',1,'mutex-10c.c']]],
-  ['mutex_5fmutexstatetable',['mutex_mutexStateTable',['../mutex-10c_8c.html#a1845e6dfa44ebdb1cbb758df896bb49c',1,'mutex-10c.c']]],
-  ['mutex_5frelease',['mutex_release',['../mutex-10c_8c.html#ace4ffeda7752f7b7d3e2ab529c966bc3',1,'mutex-10c.c']]],
-  ['mutex_5ftable_5fentries',['MUTEX_TABLE_ENTRIES',['../mutex-10c_8c.html#abf341465c527ce39fe3152786192acbd',1,'mutex-10c.c']]],
-  ['mutex_5fwaitformutex',['mutex_waitForMutex',['../mutex-10c_8c.html#adb1fa56ad74fa2dab73eb780e119a3f9',1,'mutex-10c.c']]],
-  ['mutexes',['Mutexes',['../_mutex_manager.html',1,'']]]
+  ['main',['main',['../md_main.html',1,'']]]
 ];
