@@ -9,7 +9,7 @@ var NAVTREE =
 
 var NAVTREEINDEX =
 [
-"calling_conventions.html"
+"bitmap10c.html"
 ];
 
 var SYNCONMSG = 'click to disable panel synchronisation';

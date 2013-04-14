@@ -94,22 +94,25 @@ $(document).ready(function(){initNavTree('main10c.html','');});
 
 <div class="contents">
 <div class="toc"><h3>Table of Contents</h3>
-<ul><li class="level1"><a href="#mainmoddet">Module Details</a></li>
-<li class="level1"><a href="#DASMDOC_S4">Data</a><ul><li class="level2"><a href="#DASMDOC_S5">kernel_image_header</a></li>
-<li class="level2"><a href="#DASMDOC_S6">kernel_sBootstrapName</a></li>
-<li class="level2"><a href="#DASMDOC_S7">kernel_size</a></li>
+<ul><li class="level1"><a href="#KernelMain">Kernel</a><ul><li class="level2"><a href="#mainmoddet">Module Details</a></li>
 </ul>
 </li>
-<li class="level1"><a href="#DASMDOC_S8">Functions</a><ul><li class="level2"><a href="#DASMDOC_S9">kernel_main</a></li>
-<li class="level2"><a href="#DASMDOC_S10">kernel_initThreadEp</a></li>
+<li class="level1"><a href="#DASMDOC_S58">Data</a><ul><li class="level2"><a href="#DASMDOC_S59">kernel_image_header</a></li>
+<li class="level2"><a href="#DASMDOC_S60">kernel_sBootstrapName</a></li>
+<li class="level2"><a href="#DASMDOC_S61">kernel_size</a></li>
+</ul>
+</li>
+<li class="level1"><a href="#DASMDOC_S62">Functions</a><ul><li class="level2"><a href="#DASMDOC_S63">kernel_main</a></li>
+<li class="level2"><a href="#DASMDOC_S64">kernel_initThreadEp</a></li>
 </ul>
 </li>
 </ul>
 </div>
 <div class="textblock"><h2>main10c</h2>
-<h2>Main</h2>
-<h1><a class="anchor" id="mainmoddet"></a>
-Module Details</h1>
+<h1><a class="anchor" id="KernelMain"></a>
+Kernel</h1>
+<h2><a class="anchor" id="mainmoddet"></a>
+Module Details</h2>
 <p><a class="anchor" id="BootCode"></a></p>
 <p>This module contains the boot code for the kernel image, and is the first module executed in the kernel. This module is responsible for setting up kernel critical components such as the memory manager, device manager, interrupts aswell as initializing the threading manager and the clock driver. </p>
 <dl class="section author"><dt>Author</dt><dd>Jeremy (0x10cforums.com) </dd></dl>
@@ -118,10 +121,10 @@ Module Details</h1>
 <dl class="section warning"><dt>Warning</dt><dd>Use caution with use of modules such as the MemoryManager or DeviceManager as they may not yet be initilized. Also note that if you are not inside of a thread (i.e you are still in the <a class="el" href="main10c.html#BootCode">BootCode</a> main routine) use of any threading module such as Mutex or <a class="el" href="threading10c.html#ThreadingManager">ThreadingManager</a> may cause issues unless these routines explicitly state they can be used outside of a thread. </dd>
 <dd>
 The bootcode is under the assumption that the initrd is mounted at index 0 when it is executed.</dd></dl>
-<h1><a class="anchor" id="DASMDOC_S4"></a>
+<h1><a class="anchor" id="DASMDOC_S58"></a>
 Data</h1>
 <hr/>
- <h2><a class="anchor" id="DASMDOC_S5"></a>
+ <h2><a class="anchor" id="DASMDOC_S59"></a>
 kernel_image_header</h2>
 <p><code>IMAGE*</code> kernel_image_header <br/>
 <br/>
@@ -129,9 +132,8 @@ kernel_image_header</h2>
  kernel_image_header A pointer to the base of the Kernel Image Header <br/>
 <br/>
 </p>
-<p><b>Code:</b> </p>
-<div class="fragment"></div><!-- fragment --><hr/>
- <h2><a class="anchor" id="DASMDOC_S6"></a>
+<hr/>
+ <h2><a class="anchor" id="DASMDOC_S60"></a>
 kernel_sBootstrapName</h2>
 <p><code>CHAR*</code> kernel_sBootstrapName <br/>
 <br/>
@@ -142,7 +144,7 @@ kernel_sBootstrapName</h2>
 <p><b>Code:</b> </p>
 <div class="fragment"><div class="line">dat 0x6f62, 0x746f, 0x7473, 0x6172, 0x0070 ;cstring of <span class="stringliteral">&#39;bootstrap&#39;</span></div>
 </div><!-- fragment --><hr/>
- <h2><a class="anchor" id="DASMDOC_S7"></a>
+ <h2><a class="anchor" id="DASMDOC_S61"></a>
 kernel_size</h2>
 <p><code>VOID*</code> kernel_size <br/>
 <br/>
@@ -150,12 +152,10 @@ kernel_size</h2>
  Can be interpreted as either a pointer to the end of the kernel, or, since the kernel is loaded at base address zero, the size of the kernel image. <br/>
 <br/>
 </p>
-<p><b>Code:</b> </p>
-<div class="fragment"><div class="line">:__IMGSIZE </div>
-</div><!-- fragment --><h1><a class="anchor" id="DASMDOC_S8"></a>
+<h1><a class="anchor" id="DASMDOC_S62"></a>
 Functions</h1>
 <hr/>
- <h2><a class="anchor" id="DASMDOC_S9"></a>
+ <h2><a class="anchor" id="DASMDOC_S63"></a>
 kernel_main</h2>
 <p><a class="el" href="calling_conventions.html#nakedcall">nakedcall</a> VOID kernel_main() <br/>
 <br/>
@@ -217,7 +217,7 @@ kernel_main</h2>
 <div class="line">call interrupt_enable</div>
 <div class="line">_threading_endCycle()   ;Pass control on to the next thread (or idle <span class="keywordflow">if</span> there are none.</div>
 </div><!-- fragment --><hr/>
- <h2><a class="anchor" id="DASMDOC_S10"></a>
+ <h2><a class="anchor" id="DASMDOC_S64"></a>
 kernel_initThreadEp</h2>
 <p><a class="el" href="calling_conventions.html#cdecl">cdecl</a> VOID kernel_initThreadEp() <br/>
 <br/>
@@ -265,14 +265,14 @@ kernel_initThreadEp</h2>
 <div class="line">call ramddssi_deinit</div>
 <div class="line"></div>
 <div class="line">_sfEnd()</div>
-<div class="line">ret</div>
+<div class="line">ret </div>
 </div><!-- fragment --> </div></div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="md__code.html">Code</a></li>
-    <li class="footer">Generated on Tue Apr 9 2013 21:10:06 for DarkCPU by
+    <li class="footer">Generated on Sat Apr 13 2013 17:37:42 for DarkCPU by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.3.1 </li>
   </ul>

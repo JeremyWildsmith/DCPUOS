@@ -102,15 +102,33 @@ $(document).ready(function(){initNavTree('pe_loader10c.html','');});
 <li class="level2"><a href="#peLoaderRelocTable">Relocation Table</a></li>
 </ul>
 </li>
-<li class="level1"><a href="#DASMDOC_S11">Data</a><ul><li class="level2"><a href="#DASMDOC_S12">peLoader_root</a></li>
+<li class="level1"><a href="#DASMDOC_S91">Constants</a><ul><li class="level2"><a href="#DASMDOC_S92">PEIMAGE_SIGNATURE</a></li>
+<li class="level2"><a href="#DASMDOC_S93">PEIMAGE_NAMELEN</a></li>
+<li class="level2"><a href="#DASMDOC_S94">PEIMAGE_INVALID_NEXT</a></li>
+<li class="level2"><a href="#DASMDOC_S95">PEIMAGE_INVALID_IMPORT</a></li>
+<li class="level2"><a href="#DASMDOC_S96">PEIMAGE_INVALID_EXPORT</a></li>
+<li class="level2"><a href="#DASMDOC_S97">PEIMAGE_OFFSET_SIGNATURE</a></li>
+<li class="level2"><a href="#DASMDOC_S98">PEIMAGE_OFFSET_PEFLAGS</a></li>
+<li class="level2"><a href="#DASMDOC_S99">PEIMAGE_OFFSET_NEXT</a></li>
+<li class="level2"><a href="#DASMDOC_S100">PEIMAGE_OFFSET_NAME</a></li>
+<li class="level2"><a href="#DASMDOC_S101">PEIMAGE_OFFSET_RVA_ENTRY_POINT</a></li>
+<li class="level2"><a href="#DASMDOC_S102">PEIMAGE_OFFSET_RVA_IMPORT_TABLE</a></li>
+<li class="level2"><a href="#DASMDOC_S103">PEIMAGE_OFFSET_RVA_EXPORT_TABLE</a></li>
+<li class="level2"><a href="#DASMDOC_S104">PEIMAGE_OFFSET_RVA_RELOCATION_TABLE</a></li>
+<li class="level2"><a href="#DASMDOC_S105">PEIMAGE_OFFSET_IMAGE_SIZE</a></li>
+<li class="level2"><a href="#DASMDOC_S106">PEIMAGE_OFFSET_IMAGE_MD5SPECHASH</a></li>
+<li class="level2"><a href="#DASMDOC_S107">PEIMAGE_PEFLAG_FORCEINIT</a></li>
 </ul>
 </li>
-<li class="level1"><a href="#DASMDOC_S13">Functions</a><ul><li class="level2"><a href="#DASMDOC_S14">peLoader_loadImage</a></li>
-<li class="level2"><a href="#DASMDOC_S15">peLoader_initImage</a></li>
-<li class="level2"><a href="#DASMDOC_S16">peLoader_findLastImage</a></li>
-<li class="level2"><a href="#DASMDOC_S17">peLoader_findImage</a></li>
-<li class="level2"><a href="#DASMDOC_S18">peLoader_findImageEx</a></li>
-<li class="level2"><a href="#DASMDOC_S19">peLoader_findExport</a></li>
+<li class="level1"><a href="#DASMDOC_S108">Data</a><ul><li class="level2"><a href="#DASMDOC_S109">peLoader_root</a></li>
+</ul>
+</li>
+<li class="level1"><a href="#DASMDOC_S110">Functions</a><ul><li class="level2"><a href="#DASMDOC_S111">peLoader_loadImage</a></li>
+<li class="level2"><a href="#DASMDOC_S112">peLoader_initImage</a></li>
+<li class="level2"><a href="#DASMDOC_S113">peLoader_findLastImage</a></li>
+<li class="level2"><a href="#DASMDOC_S114">peLoader_findImage</a></li>
+<li class="level2"><a href="#DASMDOC_S115">peLoader_findImageEx</a></li>
+<li class="level2"><a href="#DASMDOC_S116">peLoader_findExport</a></li>
 </ul>
 </li>
 </ul>
@@ -191,10 +209,188 @@ Relocation Table</h2>
 <td>... </td><td>Code or data Section </td><td>Where image data or code is stored </td></tr>
 </table>
 <dl class="section attention"><dt>Attention</dt><dd>The PE Image format is highly subject to change at this stage in development. Some entries which may be introduced are the reference counter and the initial stack size. Others may be introduced as well, throwing off the alignment of the table you see above.</dd></dl>
-<h1><a class="anchor" id="DASMDOC_S11"></a>
+<h1><a class="anchor" id="DASMDOC_S91"></a>
+Constants</h1>
+<hr/>
+ <h2><a class="anchor" id="DASMDOC_S92"></a>
+PEIMAGE_SIGNATURE</h2>
+<p><code>WORD</code> PEIMAGE_SIGNATURE <br/>
+<br/>
+<b>Description:</b><br/>
+ PEIMAGE_SIGNATURE This defines the first word in every executable image that validates it is an executable image. The <a class="el" href="pe_loader10c.html#PeLoader">PeLoader</a> will fail to load exeuctable images which do not poses this signature as their first byte. <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define PEIMAGE_SIGNATURE 0x10C</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S93"></a>
+PEIMAGE_NAMELEN</h2>
+<p><code>WORD</code> PEIMAGE_NAMELEN <br/>
+<br/>
+<b>Description:</b><br/>
+ This defines the number of words allocated for the module's name in the Executable Image File's Name member, refer to PeImageFormat. <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define PEIMAGE_NAMELEN   10</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S94"></a>
+PEIMAGE_INVALID_NEXT</h2>
+<p><code>WORD</code> PEIMAGE_INVALID_NEXT <br/>
+<br/>
+<b>Description:</b><br/>
+ Defines the value given to an invalid next entry, usually meaning that there are no more entries in the chain. Refer to PeImageFormat <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define PEIMAGE_INVALID_NEXT 0xFFFF</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S95"></a>
+PEIMAGE_INVALID_IMPORT</h2>
+<p><code>WORD</code> PEIMAGE_INVALID_IMPORT <br/>
+<br/>
+<b>Description:</b><br/>
+ Defines the value given to an invalid import entry, usually meaning that there are no more entries in the import table. Refer to PeImageFormat <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define PEIMAGE_INVALID_IMPORT 0xFFFF</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S96"></a>
+PEIMAGE_INVALID_EXPORT</h2>
+<p><code>WORD</code> PEIMAGE_INVALID_EXPORT <br/>
+<br/>
+<b>Description:</b><br/>
+ Defines the value given to an invalid export entry, usually meaning that there are no more entries in the export table. Refer to PeImageFormat <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define PEIMAGE_INVALID_EXPORT 0xFFFF</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S97"></a>
+PEIMAGE_OFFSET_SIGNATURE</h2>
+<p><code>WORD</code> PEIMAGE_OFFSET_SIGNATURE <br/>
+<br/>
+<b>Description:</b><br/>
+ Offset to the image's PEIMAGE structure pointing to the signature member. Refer to PeImageFormat <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define PEIMAGE_OFFSET_SIGNATURE 0</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S98"></a>
+PEIMAGE_OFFSET_PEFLAGS</h2>
+<p><code>WORD</code> PEIMAGE_OFFSET_PEFLAGS <br/>
+<br/>
+<b>Description:</b><br/>
+ Flags for loading of PEImage. Refer to PeImageFormat <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define PEIMAGE_OFFSET_PEFLAGS 1</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S99"></a>
+PEIMAGE_OFFSET_NEXT</h2>
+<p><code>WORD</code> PEIMAGE_OFFSET_NEXT <br/>
+<br/>
+<b>Description:</b><br/>
+ Offset to the image's PEIMAGE structure pointing to the NEXT member. Refer to PeImageFormat <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define PEIMAGE_OFFSET_NEXT 1</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S100"></a>
+PEIMAGE_OFFSET_NAME</h2>
+<p><code>WORD</code> PEIMAGE_OFFSET_NAME <br/>
+<br/>
+<b>Description:</b><br/>
+ Offset to the image's PEIMAGE structure pointing to the NAME member. Refer to PeImageFormat <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define PEIMAGE_OFFSET_NAME 2</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S101"></a>
+PEIMAGE_OFFSET_RVA_ENTRY_POINT</h2>
+<p><code>WORD</code> PEIMAGE_OFFSET_RVA_ENTRY_POINT <br/>
+<br/>
+<b>Description:</b><br/>
+ Offset to the image's PEIMAGE structure pointing to the RVA_ENTRY_POINT member. Refer to PeImageFormat <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define PEIMAGE_OFFSET_RVA_ENTRY_POINT    12</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S102"></a>
+PEIMAGE_OFFSET_RVA_IMPORT_TABLE</h2>
+<p><code>WORD</code> PEIMAGE_OFFSET_RVA_IMPORT_TABLE <br/>
+<br/>
+<b>Description:</b><br/>
+ Offset to the image's PEIMAGE structure pointing to the RVA_IMPORT_TABLE member. Refer to PeImageFormat <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define PEIMAGE_OFFSET_RVA_IMPORT_TABLE 13</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S103"></a>
+PEIMAGE_OFFSET_RVA_EXPORT_TABLE</h2>
+<p><code>WORD</code> PEIMAGE_OFFSET_RVA_EXPORT_TABLE <br/>
+<br/>
+<b>Description:</b><br/>
+ Offset to the image's PEIMAGE structure pointing to the PEIMAGE_OFFSET_RVA_EXPORT_TABLE member. Refer to PeImageFormat <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define PEIMAGE_OFFSET_RVA_EXPORT_TABLE 14</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S104"></a>
+PEIMAGE_OFFSET_RVA_RELOCATION_TABLE</h2>
+<p><code>WORD</code> PEIMAGE_OFFSET_RVA_RELOCATION_TABLE <br/>
+<br/>
+<b>Description:</b><br/>
+ Offset to the image's PEIMAGE structure pointing to the PEIMAGE_OFFSET_RVA_EXPORT_TABLE member. Refer to PeImageFormat <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define PEIMAGE_OFFSET_RVA_RELOCATION_TABLE 15</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S105"></a>
+PEIMAGE_OFFSET_IMAGE_SIZE</h2>
+<p><code>WORD</code> PEIMAGE_OFFSET_IMAGE_SIZE <br/>
+<br/>
+<b>Description:</b><br/>
+ Offset to the image's PEIMAGE structure pointing to the RVA_IMAGE_SIZE member. Refer to PeImageFormat <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define PEIMAGE_OFFSET_IMAGE_SIZE         16</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S106"></a>
+PEIMAGE_OFFSET_IMAGE_MD5SPECHASH</h2>
+<p><code>WORD</code> PEIMAGE_OFFSET_IMAGE_MD5SPECHASH <br/>
+<br/>
+<b>Description:</b><br/>
+ Offset to the image's PEIMAGE structure pointing to the MD5SpecHash member. Refer to PeImageFormat <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define PEIMAGE_OFFSET_IMAGE_MD5SPECHASH 17</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S107"></a>
+PEIMAGE_PEFLAG_FORCEINIT</h2>
+<p><code>WORD</code> PEIMAGE_PEFLAG_FORCEINIT <br/>
+<br/>
+<b>Description:</b><br/>
+ PeImage loading flag. Refer to PeImageFormat <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define PEIMAGE_PEFLAG_FORCEINIT 0x1</span></div>
+</div><!-- fragment --><h1><a class="anchor" id="DASMDOC_S108"></a>
 Data</h1>
 <hr/>
- <h2><a class="anchor" id="DASMDOC_S12"></a>
+ <h2><a class="anchor" id="DASMDOC_S109"></a>
 peLoader_root</h2>
 <p><code>IMAGE*</code> peLoader_root <br/>
 <br/>
@@ -204,10 +400,10 @@ peLoader_root</h2>
 </p>
 <p><b>Code:</b> </p>
 <div class="fragment"><div class="line">DAT kernel_image_header</div>
-</div><!-- fragment --><h1><a class="anchor" id="DASMDOC_S13"></a>
+</div><!-- fragment --><h1><a class="anchor" id="DASMDOC_S110"></a>
 Functions</h1>
 <hr/>
- <h2><a class="anchor" id="DASMDOC_S14"></a>
+ <h2><a class="anchor" id="DASMDOC_S111"></a>
 peLoader_loadImage</h2>
 <p><a class="el" href="calling_conventions.html#cdecl">cdecl</a> STATUS peLoader_loadImage(<code>FILE*</code> pFile, <code>FILE*</code> pSourceDirectory) <br/>
 <br/>
@@ -274,7 +470,7 @@ peLoader_loadImage</h2>
 <div class="line">    </div>
 <div class="line">    jmp peLoader_loadImage_end</div>
 </div><!-- fragment --><hr/>
- <h2><a class="anchor" id="DASMDOC_S15"></a>
+ <h2><a class="anchor" id="DASMDOC_S112"></a>
 peLoader_initImage</h2>
 <p><a class="el" href="calling_conventions.html#cdecl">cdecl</a> STATUS peLoader_initImage(<code>IMAGE*</code> pImage, <code>FILE*</code> pSourceDirectory) <br/>
 <br/>
@@ -398,9 +594,9 @@ peLoader_initImage</h2>
 <div class="line">        </div>
 <div class="line">peLoader_create_error:</div>
 <div class="line">    set a, 0                                                    ;return a zero on error</div>
-<div class="line">    jmp peLoader_create_end</div>
+<div class="line">    jmp peLoader_create_end </div>
 </div><!-- fragment --><hr/>
- <h2><a class="anchor" id="DASMDOC_S16"></a>
+ <h2><a class="anchor" id="DASMDOC_S113"></a>
 peLoader_findLastImage</h2>
 <p><a class="el" href="calling_conventions.html#cdecl">cdecl</a> void* peLoader_findLastImage() <br/>
 <br/>
@@ -421,9 +617,9 @@ peLoader_findLastImage</h2>
 <div class="line">    </div>
 <div class="line">peLoader_findLastImage_loopFindNext_end:</div>
 <div class="line"></div>
-<div class="line">ret</div>
+<div class="line">ret </div>
 </div><!-- fragment --><hr/>
- <h2><a class="anchor" id="DASMDOC_S17"></a>
+ <h2><a class="anchor" id="DASMDOC_S114"></a>
 peLoader_findImage</h2>
 <p><a class="el" href="calling_conventions.html#cdecl">cdecl</a> STATUS peLoader_findImage(<code>Char*</code> sNameSinglebyte) <br/>
 <br/>
@@ -478,9 +674,9 @@ peLoader_findImage</h2>
 <div class="line">    add sp, 2</div>
 <div class="line">    set a, 0</div>
 <div class="line">    </div>
-<div class="line">    jmp peLoader_findImage_end</div>
+<div class="line">    jmp peLoader_findImage_end </div>
 </div><!-- fragment --><hr/>
- <h2><a class="anchor" id="DASMDOC_S18"></a>
+ <h2><a class="anchor" id="DASMDOC_S115"></a>
 peLoader_findImageEx</h2>
 <p><a class="el" href="calling_conventions.html#cdecl">cdecl</a> void* peLoader_findImageEx(<code>char*</code> sNameSinglebyte, <code>FILE*</code> pSourceDirectory) <br/>
 <br/>
@@ -522,9 +718,9 @@ peLoader_findImageEx</h2>
 <div class="line">    </div>
 <div class="line">peLoader_findImageEx_end:</div>
 <div class="line">    _sfEnd()</div>
-<div class="line">    ret</div>
+<div class="line">    ret </div>
 </div><!-- fragment --><hr/>
- <h2><a class="anchor" id="DASMDOC_S19"></a>
+ <h2><a class="anchor" id="DASMDOC_S116"></a>
 peLoader_findExport</h2>
 <p><a class="el" href="calling_conventions.html#cdecl">cdecl</a> void* peLoader_findExport(<code>void*</code> pBaseAddress, <code>WORD</code> wOrdinal) <br/>
 <br/>
@@ -557,7 +753,7 @@ peLoader_findExport</h2>
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="md__code.html">Code</a></li>
-    <li class="footer">Generated on Tue Apr 9 2013 21:10:06 for DarkCPU by
+    <li class="footer">Generated on Sat Apr 13 2013 17:37:42 for DarkCPU by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.3.1 </li>
   </ul>

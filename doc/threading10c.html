@@ -94,36 +94,63 @@ $(document).ready(function(){initNavTree('threading10c.html','');});
 
 <div class="contents">
 <div class="toc"><h3>Table of Contents</h3>
-<ul><li class="level1"><a href="#mutlithreading">Threading</a><ul><li class="level2"><a href="#lockingthreadm">Locking Thread Manager</a></li>
+<ul><li class="level1"><a href="#mutlithreading">Threading</a><ul><li class="level2"><a href="#mutlithreadingDetails">Module Details</a></li>
+<li class="level2"><a href="#threads">Threads</a></li>
+<li class="level2"><a href="#lockingthreadm">Locking Thread Manager</a></li>
 <li class="level2"><a href="#threadingTeb">TEB</a></li>
 <li class="level2"><a href="#threadingContext">ThreadContext</a></li>
 </ul>
 </li>
-<li class="level1"><a href="#DASMDOC_S20">Data</a><ul><li class="level2"><a href="#DASMDOC_S21">threading_activeThread</a></li>
-<li class="level2"><a href="#DASMDOC_S22">threading_rootThread</a></li>
-<li class="level2"><a href="#DASMDOC_S23">threading_state</a></li>
+<li class="level1"><a href="#DASMDOC_S117">Constants</a><ul><li class="level2"><a href="#DASMDOC_S118">THREADING_INVALIDENTRY</a></li>
+<li class="level2"><a href="#DASMDOC_S119">THREADCONTEXT_SIZE</a></li>
+<li class="level2"><a href="#DASMDOC_S120">THREADCONTEXT_OFFSET_END</a></li>
+<li class="level2"><a href="#DASMDOC_S121">THREADCONTEXT_OFFSET_PC</a></li>
+<li class="level2"><a href="#DASMDOC_S122">THREADCONTEXT_OFFSET_SP</a></li>
+<li class="level2"><a href="#DASMDOC_S123">THREADCONTEXT_OFFSET_EX</a></li>
+<li class="level2"><a href="#DASMDOC_S124">THREADCONTEXT_OFFSET_A</a></li>
+<li class="level2"><a href="#DASMDOC_S125">THREADCONTEXT_OFFSET_B</a></li>
+<li class="level2"><a href="#DASMDOC_S126">THREADCONTEXT_OFFSET_C</a></li>
+<li class="level2"><a href="#DASMDOC_S127">THREADCONTEXT_OFFSET_X</a></li>
+<li class="level2"><a href="#DASMDOC_S128">THREADCONTEXT_OFFSET_Y</a></li>
+<li class="level2"><a href="#DASMDOC_S129">THREADCONTEXT_OFFSET_Z</a></li>
+<li class="level2"><a href="#DASMDOC_S130">THREADCONTEXT_OFFSET_I</a></li>
+<li class="level2"><a href="#DASMDOC_S131">THREADCONTEXT_OFFSET_J</a></li>
+<li class="level2"><a href="#DASMDOC_S132">THREADCONTEXT_OFFSET_NEXT</a></li>
+<li class="level2"><a href="#DASMDOC_S133">THREADCONTEXT_TEB_OFFSET</a></li>
+<li class="level2"><a href="#DASMDOC_S134">THREADCONTEXT_TEB_OFFSET_PARENTIMAGE</a></li>
+<li class="level2"><a href="#DASMDOC_S135">THREADING_STATE_NORMAL</a></li>
+<li class="level2"><a href="#DASMDOC_S136">THREADING_STATE_LOCKED</a></li>
 </ul>
 </li>
-<li class="level1"><a href="#DASMDOC_S24">Functions</a><ul><li class="level2"><a href="#DASMDOC_S25">threading_endCycle</a></li>
-<li class="level2"><a href="#DASMDOC_S26">threading_createThread</a></li>
-<li class="level2"><a href="#DASMDOC_S27">threading_createThreadEx</a></li>
-<li class="level2"><a href="#DASMDOC_S28">threading_removeThread</a></li>
-<li class="level2"><a href="#DASMDOC_S29">threading_lock</a></li>
-<li class="level2"><a href="#DASMDOC_S30">threading_free</a></li>
-<li class="level2"><a href="#DASMDOC_S31">threading_endOfThread</a></li>
-<li class="level2"><a href="#DASMDOC_S32">threading_interrupt</a></li>
+<li class="level1"><a href="#DASMDOC_S137">Data</a><ul><li class="level2"><a href="#DASMDOC_S138">threading_activeThread</a></li>
+<li class="level2"><a href="#DASMDOC_S139">threading_rootThread</a></li>
+<li class="level2"><a href="#DASMDOC_S140">threading_state</a></li>
+</ul>
+</li>
+<li class="level1"><a href="#DASMDOC_S141">Functions</a><ul><li class="level2"><a href="#DASMDOC_S142">threading_endCycle</a></li>
+<li class="level2"><a href="#DASMDOC_S143">threading_createThread</a></li>
+<li class="level2"><a href="#DASMDOC_S144">threading_createThreadEx</a></li>
+<li class="level2"><a href="#DASMDOC_S145">threading_removeThread</a></li>
+<li class="level2"><a href="#DASMDOC_S146">threading_lock</a></li>
+<li class="level2"><a href="#DASMDOC_S147">threading_free</a></li>
+<li class="level2"><a href="#DASMDOC_S148">threading_endOfThread</a></li>
+<li class="level2"><a href="#DASMDOC_S149">threading_interrupt</a></li>
 </ul>
 </li>
 </ul>
 </div>
 <div class="textblock"><h2>threading10c</h2>
+<h1><a class="anchor" id="mutlithreading"></a>
+Threading</h1>
+<h2><a class="anchor" id="mutlithreadingDetails"></a>
+Module Details</h2>
 <p><a class="anchor" id="ThreadingManager"></a></p>
 <p>This module is responsible for hadling a large portion of the multithreading in the operating system. This subsystem performs threading operations such as creating or destorying threads, halting/resuming threads, changing a thread's context and swapping threads on interrupt triggers. </p>
 <dl class="section author"><dt>Author</dt><dd>Jeremy (0x10cforums.com) </dd></dl>
 <dl class="section version"><dt>Version</dt><dd>1.0 </dd></dl>
 <dl class="section date"><dt>Date</dt><dd>Dec, 15, 2012</dd></dl>
-<h1><a class="anchor" id="mutlithreading"></a>
-Threading</h1>
+<h2><a class="anchor" id="threads"></a>
+Threads</h2>
 <p>A thread in DarkCPU defines a single stream of execution throughout memory. The kernel will swap between these streams of execution very quickly, giving the system an illusion that multiple streams are being executed parallel to one-another. Each stream acts as if it were an individual processor on the system, each with their own ThreadContext structure, descirinbg the execution stream's state of context sinsitive data carried by the cpu such as the registers. Each thread will also have their own stack structure allocated for them as well.</p>
 <p>In DarkCPU, threads are specifically just threads. They are not 'owned' by their parent process. Each process can spawn several threads, and a thread can be spawned from no particular process. Threads are commonly used in conjunction with executable images to perform the tasks described by the executable image and are thus used very frequently when developing applications or drivers for the operating system. It is important to note that a thread is not at all required for an application, and the lack of a thread running inside of an application does not make that application any less valid.</p>
 <p>The threading manager keeps track of all active threads by sorting a linked list of the threads' ThreadContext strucutres (<a class="el" href="threading10c.html#ThreadContextLayout">ThreadContextLayout</a>), with the root entry of this list defined in the threading_rootThread variable. The threading manager will set threading_activeThread to point to the active thread's ThreadContext structure. When it is time to swap threads, the threading manager will save the state of the active thread into it's respective ThreadContext structure, and walk down the linked list to the next thread. It will then proceed to put the DCPU processor into the state described by that thread's ThreadContext structure, and resume execution.</p>
@@ -133,7 +160,7 @@ Threading</h1>
 <hr/>
  <h2><a class="anchor" id="lockingthreadm"></a>
 Locking Thread Manager</h2>
-<p><a class="anchor" id="LockingTheThreadManager"></a>If a given thread is performing a time-sensitive operation or if the thread is accessing a device or memory location and needs to ensure exclusive access to this resource (refer to a higher-level method of doing with with the MutexManager), the threading manager can be placed into a locked state. That is, whichever thread requests a lock, will consistantly be the only thread executing on the system until it has restored the threading manager to an unlocked state. If possible, one should use a Mutex (Mutexes) to ensure synchronization of resource access, however if they are executing outside of a threaded environment or are unable to Initialize the MutexManager, the threading manager can be locked.</p>
+<p><a class="anchor" id="LockingTheThreadManager"></a>If a given thread is performing a time-sensitive operation or if the thread is accessing a device or memory location and needs to ensure exclusive access to this resource (refer to a higher-level method of doing with with the <a class="el" href="mutex10c.html#MutexManager">Mutexes</a>), the threading manager can be placed into a locked state. That is, whichever thread requests a lock, will consistantly be the only thread executing on the system until it has restored the threading manager to an unlocked state. If possible, one should use a Mutex (Mutexes) to ensure synchronization of resource access, however if they are executing outside of a threaded environment or are unable to Initialize the <a class="el" href="mutex10c.html#MutexManager">Mutexes</a>, the threading manager can be locked.</p>
 <p>The Threading Manager's State can be locked and unlocked by using the threading_lock and threading_free routines respectivley.</p>
 <p>The state of the threading manager is stored inside of the threading_state variable.</p>
 <hr/>
@@ -186,10 +213,221 @@ ThreadContext</h2>
 <tr>
 <td>THREADCONTEXT_OFFSETEND </td><td></td><td>Offset to the last word in the ThreadContext. This is the initial value of SP for the thread. </td></tr>
 </table>
-<h1><a class="anchor" id="DASMDOC_S20"></a>
+<h1><a class="anchor" id="DASMDOC_S117"></a>
+Constants</h1>
+<hr/>
+ <h2><a class="anchor" id="DASMDOC_S118"></a>
+THREADING_INVALIDENTRY</h2>
+<p><code>WORD</code> THREADING_INVALIDENTRY <br/>
+<br/>
+<b>Description:</b><br/>
+ Used to state the pNextThread entry in the ThreadContext structure is invalid. If this is encountered, it means that there is no next entry in the chain of threads (i.e, the thread is the last in the chain.) <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define THREADING_INVALIDENTRY                    0xFFFF</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S119"></a>
+THREADCONTEXT_SIZE</h2>
+<p><code>WORD</code> THREADCONTEXT_SIZE <br/>
+<br/>
+<b>Description:</b><br/>
+ Equal to the size of the ThreadContext structure. Refer to <a class="el" href="threading10c.html#ThreadContextLayout">ThreadContextLayout</a> <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define THREADCONTEXT_SIZE                        256</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S120"></a>
+THREADCONTEXT_OFFSET_END</h2>
+<p><code>WORD</code> THREADCONTEXT_OFFSET_END <br/>
+<br/>
+<b>Description:</b><br/>
+ Defines the offset to the end of the ThreadContext structure. Refer to <a class="el" href="threading10c.html#ThreadContextLayout">ThreadContextLayout</a> <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define THREADCONTEXT_OFFSET_END                  255</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S121"></a>
+THREADCONTEXT_OFFSET_PC</h2>
+<p><code>WORD</code> THREADCONTEXT_OFFSET_PC <br/>
+<br/>
+<b>Description:</b><br/>
+ Defines the offset to the regPc member of the ThreadContext structure. Refer to <a class="el" href="threading10c.html#ThreadContextLayout">ThreadContextLayout</a> <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define THREADCONTEXT_OFFSET_PC               0</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S122"></a>
+THREADCONTEXT_OFFSET_SP</h2>
+<p><code>WORD</code> THREADCONTEXT_OFFSET_SP <br/>
+<br/>
+<b>Description:</b><br/>
+ Defines the offset to the regSp member of the ThreadContext structure. Refer to <a class="el" href="threading10c.html#ThreadContextLayout">ThreadContextLayout</a> <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define THREADCONTEXT_OFFSET_SP               1</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S123"></a>
+THREADCONTEXT_OFFSET_EX</h2>
+<p><code>WORD</code> THREADCONTEXT_OFFSET_EX <br/>
+<br/>
+<b>Description:</b><br/>
+ Defines the offset to the regEx member of the ThreadContext structure. Refer to <a class="el" href="threading10c.html#ThreadContextLayout">ThreadContextLayout</a> <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define THREADCONTEXT_OFFSET_EX               2</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S124"></a>
+THREADCONTEXT_OFFSET_A</h2>
+<p><code>WORD</code> THREADCONTEXT_OFFSET_A <br/>
+<br/>
+<b>Description:</b><br/>
+ Defines the offset to the regA member of the ThreadContext structure. Refer to <a class="el" href="threading10c.html#ThreadContextLayout">ThreadContextLayout</a> <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define THREADCONTEXT_OFFSET_A                3</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S125"></a>
+THREADCONTEXT_OFFSET_B</h2>
+<p><code>WORD</code> THREADCONTEXT_OFFSET_B <br/>
+<br/>
+<b>Description:</b><br/>
+ Defines the offset to the regB member of the ThreadContext structure. Refer to <a class="el" href="threading10c.html#ThreadContextLayout">ThreadContextLayout</a> <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define THREADCONTEXT_OFFSET_B                4</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S126"></a>
+THREADCONTEXT_OFFSET_C</h2>
+<p><code>WORD</code> THREADCONTEXT_OFFSET_C <br/>
+<br/>
+<b>Description:</b><br/>
+ Defines the offset to the regC member of the ThreadContext structure. Refer to <a class="el" href="threading10c.html#ThreadContextLayout">ThreadContextLayout</a> <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define THREADCONTEXT_OFFSET_C                5</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S127"></a>
+THREADCONTEXT_OFFSET_X</h2>
+<p><code>WORD</code> THREADCONTEXT_OFFSET_X <br/>
+<br/>
+<b>Description:</b><br/>
+ Defines the offset to the regX member of the ThreadContext structure. Refer to <a class="el" href="threading10c.html#ThreadContextLayout">ThreadContextLayout</a> <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define THREADCONTEXT_OFFSET_X                6</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S128"></a>
+THREADCONTEXT_OFFSET_Y</h2>
+<p><code>WORD</code> THREADCONTEXT_OFFSET_Y <br/>
+<br/>
+<b>Description:</b><br/>
+ Defines the offset to the regY member of the ThreadContext structure. Refer to <a class="el" href="threading10c.html#ThreadContextLayout">ThreadContextLayout</a> <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define THREADCONTEXT_OFFSET_Y                7</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S129"></a>
+THREADCONTEXT_OFFSET_Z</h2>
+<p><code>WORD</code> THREADCONTEXT_OFFSET_Z <br/>
+<br/>
+<b>Description:</b><br/>
+ Defines the offset to the regZ member of the ThreadContext structure. Refer to <a class="el" href="threading10c.html#ThreadContextLayout">ThreadContextLayout</a> <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define THREADCONTEXT_OFFSET_Z                8</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S130"></a>
+THREADCONTEXT_OFFSET_I</h2>
+<p><code>WORD</code> THREADCONTEXT_OFFSET_I <br/>
+<br/>
+<b>Description:</b><br/>
+ Defines the offset to the regI member of the ThreadContext structure. Refer to <a class="el" href="threading10c.html#ThreadContextLayout">ThreadContextLayout</a> <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define THREADCONTEXT_OFFSET_I                9</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S131"></a>
+THREADCONTEXT_OFFSET_J</h2>
+<p><code>WORD</code> THREADCONTEXT_OFFSET_J <br/>
+<br/>
+<b>Description:</b><br/>
+ Defines the offset to the regJ member of the ThreadContext structure. Refer to <a class="el" href="threading10c.html#ThreadContextLayout">ThreadContextLayout</a> <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define THREADCONTEXT_OFFSET_J                10</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S132"></a>
+THREADCONTEXT_OFFSET_NEXT</h2>
+<p><code>WORD</code> THREADCONTEXT_OFFSET_NEXT <br/>
+<br/>
+<b>Description:</b><br/>
+ Defines the offset to the pNext member of the ThreadContext structure. Refer to <a class="el" href="threading10c.html#ThreadContextLayout">ThreadContextLayout</a> <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define THREADCONTEXT_OFFSET_NEXT             11</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S133"></a>
+THREADCONTEXT_TEB_OFFSET</h2>
+<p><code>WORD</code> THREADCONTEXT_TEB_OFFSET <br/>
+<br/>
+<b>Description:</b><br/>
+ Defines the offset to the THREADCONTEXT_TEB_OFFSET member of the ThreadContext structure. Refer to <a class="el" href="threading10c.html#ThreadContextLayout">ThreadContextLayout</a> <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define THREADCONTEXT_TEB_OFFSET              12</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S134"></a>
+THREADCONTEXT_TEB_OFFSET_PARENTIMAGE</h2>
+<p><code>WORD</code> THREADCONTEXT_TEB_OFFSET_PARENTIMAGE <br/>
+<br/>
+<b>Description:</b><br/>
+ Defines the offset to the THREADCONTEXT_TEB_OFFSET_PARENTIMAGE member of the ThreadContext structure. Refer to <a class="el" href="threading10c.html#ThreadContextLayout">ThreadContextLayout</a> <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define THREADCONTEXT_TEB_OFFSET_PARENTIMAGE  12</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S135"></a>
+THREADING_STATE_NORMAL</h2>
+<p><code>WORD</code> THREADING_STATE_NORMAL <br/>
+<br/>
+<b>Description:</b><br/>
+ Defines the state of the threading system. This value is used to symbolize the normal state. Refer to <a class="el" href="threading10c.html#LockingTheThreadManager">LockingTheThreadManager</a> <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define THREADING_STATE_NORMAL 0</span></div>
+</div><!-- fragment --><hr/>
+ <h2><a class="anchor" id="DASMDOC_S136"></a>
+THREADING_STATE_LOCKED</h2>
+<p><code>WORD</code> THREADING_STATE_LOCKED <br/>
+<br/>
+<b>Description:</b><br/>
+ Defines the state of the threading system. This value is used to symbolize the locked state. Refer to <a class="el" href="threading10c.html#LockingTheThreadManager">LockingTheThreadManager</a> <br/>
+<br/>
+</p>
+<p><b>Code:</b> </p>
+<div class="fragment"><div class="line"><span class="preprocessor">#define THREADING_STATE_LOCKED 1</span></div>
+</div><!-- fragment --><h1><a class="anchor" id="DASMDOC_S137"></a>
 Data</h1>
 <hr/>
- <h2><a class="anchor" id="DASMDOC_S21"></a>
+ <h2><a class="anchor" id="DASMDOC_S138"></a>
 threading_activeThread</h2>
 <p><code>THREADCONTEXT*</code> threading_activeThread <br/>
 <br/>
@@ -200,7 +438,7 @@ threading_activeThread</h2>
 <p><b>Code:</b> </p>
 <div class="fragment"><div class="line">dat THREADING_INVALIDENTRY</div>
 </div><!-- fragment --><hr/>
- <h2><a class="anchor" id="DASMDOC_S22"></a>
+ <h2><a class="anchor" id="DASMDOC_S139"></a>
 threading_rootThread</h2>
 <p><code>THREADCONTEXT*</code> threading_rootThread <br/>
 <br/>
@@ -211,19 +449,18 @@ threading_rootThread</h2>
 <p><b>Code:</b> </p>
 <div class="fragment"><div class="line">dat THREADING_INVALIDENTRY</div>
 </div><!-- fragment --><hr/>
- <h2><a class="anchor" id="DASMDOC_S23"></a>
+ <h2><a class="anchor" id="DASMDOC_S140"></a>
 threading_state</h2>
-<p><code>THREADINGSTATE</code> threading_state <br/>
+<p><code>THREADINGSTATE*</code> threading_state <br/>
 <br/>
 <b>Description:</b><br/>
  Stores the current state of the threading system. I.e, THREADING_STATE_NORMAL or THREADING_STATE_LOCKED <br/>
 <br/>
 </p>
-<p><b>Code:</b> </p>
-<div class="fragment"></div><!-- fragment --><h1><a class="anchor" id="DASMDOC_S24"></a>
+<h1><a class="anchor" id="DASMDOC_S141"></a>
 Functions</h1>
 <hr/>
- <h2><a class="anchor" id="DASMDOC_S25"></a>
+ <h2><a class="anchor" id="DASMDOC_S142"></a>
 threading_endCycle</h2>
 <p><a class="el" href="calling_conventions.html#nakedcall">nakedcall</a> VOID threading_endCycle() <br/>
 <br/>
@@ -234,9 +471,9 @@ threading_endCycle</h2>
 </dd></dl>
 <p><b>Code:</b> </p>
 <div class="fragment"><div class="line">_threading_endCycle()</div>
-<div class="line">ret</div>
+<div class="line">ret </div>
 </div><!-- fragment --><hr/>
- <h2><a class="anchor" id="DASMDOC_S26"></a>
+ <h2><a class="anchor" id="DASMDOC_S143"></a>
 threading_createThread</h2>
 <p><a class="el" href="calling_conventions.html#cdecl">cdecl</a> VOID* threading_createThread(<code>VOID*</code> pEntryPoint, <code>WORD</code> wArgument) <br/>
 <br/>
@@ -262,9 +499,9 @@ threading_createThread</h2>
 <div class="line">add sp, 3</div>
 <div class="line"></div>
 <div class="line">_sfEnd()</div>
-<div class="line">ret</div>
+<div class="line">ret </div>
 </div><!-- fragment --><hr/>
- <h2><a class="anchor" id="DASMDOC_S27"></a>
+ <h2><a class="anchor" id="DASMDOC_S144"></a>
 threading_createThreadEx</h2>
 <p><a class="el" href="calling_conventions.html#cdecl">cdecl</a> VOID* threading_createThreadEx(<code>VOID*</code> pEntryPoint, <code>WORD</code> wArgument, <code>IMAGE*</code> pParentImage) <br/>
 <br/>
@@ -331,7 +568,7 @@ threading_createThreadEx</h2>
 <div class="line">    _sfEnd()</div>
 <div class="line">    ret</div>
 </div><!-- fragment --><hr/>
- <h2><a class="anchor" id="DASMDOC_S28"></a>
+ <h2><a class="anchor" id="DASMDOC_S145"></a>
 threading_removeThread</h2>
 <p><a class="el" href="calling_conventions.html#cdecl">cdecl</a> STATUS threading_removeThread(<code>THREADCONTEXT*</code> pThreadContext) <br/>
 <br/>
@@ -398,7 +635,7 @@ threading_removeThread</h2>
 <div class="line">    set [threading_rootThread], [y + THREADCONTEXT_OFFSET_NEXT]</div>
 <div class="line">    jmp threading_removeThread_removeEntry</div>
 </div><!-- fragment --><hr/>
- <h2><a class="anchor" id="DASMDOC_S29"></a>
+ <h2><a class="anchor" id="DASMDOC_S146"></a>
 threading_lock</h2>
 <p><a class="el" href="calling_conventions.html#cdecl">cdecl</a> VOID threading_lock() <br/>
 <br/>
@@ -409,9 +646,9 @@ threading_lock</h2>
 </dd></dl>
 <p><b>Code:</b> </p>
 <div class="fragment"><div class="line"><span class="keyword">set</span> [threading_state], THREADING_STATE_LOCKED</div>
-<div class="line">ret</div>
+<div class="line">ret </div>
 </div><!-- fragment --><hr/>
- <h2><a class="anchor" id="DASMDOC_S30"></a>
+ <h2><a class="anchor" id="DASMDOC_S147"></a>
 threading_free</h2>
 <p><a class="el" href="calling_conventions.html#cdecl">cdecl</a> VOID threading_free() <br/>
 <br/>
@@ -422,9 +659,9 @@ threading_free</h2>
 </dd></dl>
 <p><b>Code:</b> </p>
 <div class="fragment"><div class="line"><span class="keyword">set</span> [threading_state], THREADING_STATE_NORMAL</div>
-<div class="line">ret </div>
+<div class="line">ret  </div>
 </div><!-- fragment --><hr/>
- <h2><a class="anchor" id="DASMDOC_S31"></a>
+ <h2><a class="anchor" id="DASMDOC_S148"></a>
 threading_endOfThread</h2>
 <p><a class="el" href="calling_conventions.html#cdecl">cdecl</a> VOID threading_endOfThread() <br/>
 <br/>
@@ -437,9 +674,9 @@ threading_endOfThread</h2>
 <div class="fragment"><div class="line"><span class="keyword">set</span> a, sp                   ; <span class="charliteral">&#39;A&#39;</span> <span class="keyword">register</span> will be equal to address of last data member in structure + 1 (because it just popped off the <span class="keywordflow">return</span>)</div>
 <div class="line">sub a, THREADCONTEXT_SIZE   ;because it is equal to last data + 1, it is effectivley base + the size of the structure</div>
 <div class="line">_push A</div>
-<div class="line">call threading_removeThread</div>
+<div class="line">call threading_removeThread </div>
 </div><!-- fragment --><hr/>
- <h2><a class="anchor" id="DASMDOC_S32"></a>
+ <h2><a class="anchor" id="DASMDOC_S149"></a>
 threading_interrupt</h2>
 <p><a class="el" href="calling_conventions.html#cdecl">cdecl</a> VOID threading_interrupt() <br/>
 <br/>
@@ -519,7 +756,7 @@ threading_interrupt</h2>
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="md__code.html">Code</a></li>
-    <li class="footer">Generated on Tue Apr 9 2013 21:10:06 for DarkCPU by
+    <li class="footer">Generated on Sat Apr 13 2013 17:37:42 for DarkCPU by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.3.1 </li>
   </ul>
