@@ -79,7 +79,7 @@ clock_init:
 			
 		set a, CLOCK_INTERRUPTCODE_SETTICKS
 		
-		_sfArg(b, 1)
+		_sfArg(b, 0)
 		hwi [clock_deviceIndex]					;Set the clock frequency
 			
 		_push [clock_deviceIndex]
