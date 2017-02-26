@@ -1,0 +1,111 @@
+;;
+;\file lafs-10c.c
+;\anchor LAFSFSI
+;\brief Executable image that acts as a FSI library implementing lafs filesystem.
+;\author Jeremy (0x10cforums.com)
+;\version 1.0
+;\date April, 1, 2013
+;
+;;
+
+#define LAFS_SECTOR_SUPERBLOCK 1
+
+:image_header
+signature:
+	dat 0x10C
+
+header_next:
+	dat	0x0001
+
+name:
+	dat 0x616c, 0x7366, 0, 0, 0, 0, 0, 0, 0, 0 ;cstring of 'lafs'
+
+rva_ep:
+	dat 0
+
+rva_import:
+	dat import_table
+	
+rva_export:
+	dat export_table
+	
+rva_relocation:
+	dat 0
+	
+imageSize:
+	dat lafs_size
+	
+import_table:
+	dat 0xFFFF
+	
+export_table:
+	dat 0xFFFF
+
+cache:
+	_sfBegin(0)
+	
+	_sfArg(a, 0)
+	_push [a + KERNEL_VFS_FILE_OFFSET_MOUNTPOINT]
+	call [KERNEL_EXPORT_BASE + KERNEL_VFS_GETMOUNTMEDIASTORAGE]
+	add sp, 1
+	
+	_push DDSSI_BEGINCACHE
+	_push a
+	call [KERNEL_EXPORT_BASE + KERNEL_PELOADER_FINDEXPORT]
+	add sp, 2
+	
+	_sfArg(push, 1)
+	call a
+	add sp, 1
+	
+	_sfEnd()
+	ret
+
+;returns number of filesystem entries (i.e, excluding skip directories) in a directory.
+;arg1 is the file descriptor describing the directory to get the size of
+getSectorEntryCount:
+	
+
+fsStart:
+	_sfBegin(0)
+	
+	_push LAFS_SECTOR_SUPERBLOCK
+	_sfArg(push, 0)
+	rcall cache
+	add sp, 2
+	
+	_sfEnd()
+	ret
+
+fsEnd:
+	ret
+	
+fsGetRoot:
+	_sfBegin(1)
+	
+	_sfArg(a, 0)
+	
+	_push 1
+	;_sfArgPtr(push, 0)
+	;_push LAFS_SUPERBLOCK_ROOTDIR_OFFSET
+	_push LAFS_SECTOR_SUPERBLOCK
+	call [a + KERNEL_VFS_FILE_OFFSET_MEDIAREAD]
+	add sp, 4
+	
+	_sfArg(a, 0)
+	_sfLocal(c, 0)
+	add c, LAFS_SECTOR_SUPERBLOCK
+	set [a + KERNEL_VFS_FILE_OFFSET_FILEIDHI], c
+	set [a + KERNEL_VFS_FILE_OFFSET_FILEIDLO], 0
+	
+	_push c
+	_push a
+	rcall cache
+	add sp, 2
+	
+	rcall getSectorEntryCount
+	
+	ret
+		
+#segment LAFS_END 1100
+lafs_size:

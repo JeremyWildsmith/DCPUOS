@@ -1,0 +1,168 @@
+
+#macro ret () {
+	set pc, pop
+}
+
+#macro rcall(address) {
+	_push nextinstr
+	_push address
+	sub [sp], nextinstr
+	add pc, pop
+nextinstr:
+}
+
+#macro call(address) {
+	jsr address
+}
+
+#macro _rpush(address) {
+	_push pc
+current:
+	sub [sp], current
+	add [sp], address
+}
+
+#macro xchg(a0, a1) {
+	xor a0, a1
+	xor a1, a0
+	xor a0, a1
+}
+
+;DOESNT WORK WITH Z
+#macro _rppush(address) {
+	_push pc
+current:
+	add [sp], address - current
+	xchg z, [sp]
+	set z, [z]
+	xchg z, [sp]
+}
+
+#macro rset(dest, src) {
+	_push z
+	set z, pc
+current:
+	add z, dest - current
+	set [z], src
+	_pop z
+}
+
+;DOESNT WORK IF DEST IS PUSH, USE _rppush
+;DOESNT WORK WITH Z AS DEST
+#macro setr(dest, src) {
+	_push pc
+current:
+	add [sp], src - current
+	xchg z, [sp]
+	set dest, [z]
+	_pop z
+}
+
+#macro jmp (address) {
+	set pc, address
+}
+
+#macro jmpU(address) {
+	sub pc, next - address
+next:
+}
+
+
+#macro jmpD(address) {
+	add pc, address - next
+next:
+}
+
+#macro relCall(address) {
+	set x, pc
+next:
+	sub x, next
+	add x, address
+	jsr x
+}
+
+#macro callRelPtr(pointer) {
+	set x, pc
+next:
+	jsr [x - next - pointer]
+}
+
+#macro _push (value) {
+	set push, value
+}
+
+#macro _pop (value) {
+	set value, pop
+}
+
+#macro relPushLabel(label) {
+	set push, pc
+next:
+	sub [sp], next - label
+}
+
+#macro relLoadLabel(dest, label) {
+	set dest, pc
+next:
+	sub dest, next - label
+}
+
+
+#macro _sfBegin(sizeOfFrame) {
+	set	push, b
+	set b, sp
+	sub sp, sizeOfFrame
+}
+
+#macro _loadBase(dest) {
+	set dest, pc
+current:
+	sub dest, current
+}
+
+#macro _sfEnd() {
+	set sp, b
+	set b, pop
+}
+
+#macro _sfLocal(dest, offset) {
+	set dest, [b - offset + 1] ;Devkit interpretes this as b - (offset + 1). Doing b - offset - 1 is interepreted as (b - (offset - 1))
+}
+
+#macro _sfLocalPtr(dest, offset) {
+	set ex, b
+	sub ex, offset + 1
+	set dest, ex
+}
+
+#macro _sfLocalIfEquals(argNumber, value) { 
+	ife value, [b - argNumber + 1]
+}
+
+#macro _sfLocalSet(dest, value) {
+	set [b - dest + 1], value
+}
+
+#macro _sfArg(dest, argNumber) { 
+	set dest, [b + argNumber + 2]
+}
+
+#macro _sfArgAdd(dest, argNumber) { 
+	add dest, [b + argNumber + 2]
+}
+
+#macro _sfArgSub(dest, argNumber) { 
+	sub dest, [b + argNumber + 2]
+}
+
+#macro _sfArgAnd(dest, argNumber) { 
+	sub dest, [b + argNumber + 2]
+}
+
+#macro _sfArgIfEquals(argNumber, value) { 
+	ife value, [b + argNumber + 2]
+}
+
+#macro _sfArgIfNotEquals(argNumber, value) { 
+	ifn value, [b + argNumber + 2]
+}

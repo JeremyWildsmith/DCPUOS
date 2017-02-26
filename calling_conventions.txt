@@ -1,0 +1,7 @@
+cdecl
+
+NOT Preserved in a call
+A, C, I, J, X, Y
+
+Preserved (As well as special registers...)
+Z, B, I

@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<solution>
+  <name>DarkCPU</name>
+  <properties>
+    <property name="emuLoad.projectName">DARKCPU</property>
+    <property name="emuLoadMode">project</property>
+    <property name="setStartupCoreSpeed">True</property>
+  </properties>
+  <projects>
+    <project path="DARKCPU\DARKCPU.10cproj" />
+    <project path="SHELL\SHELL.10cproj" />
+    <project path="initrd_bootstrap\initrd_bootstrap.10cproj" />
+    <project path="LAFS\LAFS.10cproj" />
+    <project path="M35\M35.10cproj" />
+    <project path="common\common.10cproj" />
+    <project path="FILESYSTEM_DISK\FILESYSTEM_DISK.10cproj" />
+    <project path="firmware\firmware.10cproj" />
+  </projects>
+</solution>

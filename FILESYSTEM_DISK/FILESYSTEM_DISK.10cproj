@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<project version="1.7.6" type="disk">
+  <name>FILESYSTEM_DISK</name>
+  <properties>
+    <property name="outputFilename">FILESYSTEM_DISK.bief</property>
+    <property name="compress">true</property>
+    <property name="filesystem.enabled">False</property>
+    <property name="filesystem.type">Structureless</property>
+    <property name="versionIncrement">2</property>
+    <property name="autoLoad.enabled">False</property>
+    <property name="autoLoad.drive">0</property>
+  </properties>
+  <references />
+  <files>
+    <file path="..\systemFilesystem">
+      <property name="providerFileTypeName">Binary Resource file</property>
+      <property name="Identifier">fs</property>
+      <property name="disk.index">0</property>
+      <property name="disk.entryTypeName">offset</property>
+    </file>
+  </files>
+</project>

@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<solution name="DarkCPU" path="C:\Users\Jeremy\Desktop\DCPUOS-master\DarkCPU.10csln" currentFile="DARKCPU\ramddssi.10c">
+  <openFiles>
+    <file path="initrd_bootstrap\main.10c" />
+    <file path="DARKCPU\vfs.10c" />
+    <file path="DARKCPU\rsfs.10c" />
+    <file path="DARKCPU\main.10c" />
+    <file path="DARKCPU\bitmap.10c" />
+    <file path="common\macros.10c" />
+    <file path="DARKCPU\ramddssi.10c" />
+    <file path="DARKCPU\string.10c" />
+    <file path="SHELL\shell.10c" />
+    <file path="DARKCPU\userInterfaceState.10c" />
+    <file path="SHELL\kerneldef.10c" />
+    <file path="initrd_bootstrap\external.10c" />
+    <file path="DARKCPU\peLoader.10c" />
+    <file path="DARKCPU\memory.10c" />
+    <file path="DARKCPU\mutex.10c" />
+  </openFiles>
+</solution>

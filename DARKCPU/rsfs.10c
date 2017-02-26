@@ -1,0 +1,302 @@
+;;
+;\file rsfs-10c.c
+;\anchor ReallySimpleFileSystemFsi
+;\brief This module implements a 
+;\details This module implements the Really Simple File System specification, \ref SpecReallySimpleFileSystem using the \ref DDSFSI interface. 
+;\author Jeremy (0x10cforums.com)
+;\version 1.0
+;\date Dec, 22, 2012
+;
+;
+;Hi part of fileid used as origin of file\directory entry, low part points to data of entry (for directory, this is child files.)
+;
+;;
+
+#define RSFS_ENTRYTYPE_FILE 	 		1
+#define RSFS_ENTRYTYPE_DIRECTORY 		2
+#define RSFS_HEADER_SIZE		 		2
+#define RSFS_NAME_SIZE			 		5
+#define RSFS_ENTRY_SIZE          		8
+#define RSFS_ENTRY_OFFSET_SIZELENGTH    6
+#define RSFS_ENTRY_OFFSET_TYPE   		0
+#define RSFS_ENTRY_OFFSET_NAME   		1
+#define RSFS_ENTRY_OFFSET_DATAOFFSET   	7
+#define RSFS_ENTRY_LASTMEMBER			7     
+
+#define RSFS_ROOT_HI_ID 				0xF00D
+
+;This header is hacked, as this image doesn't actually go through the PE loader, it is loaded with the kernel and then added
+;to the executable chain
+:rsfs_header
+:rsfs_header_signature
+	DAT 0x10C
+
+:rsfs_header_next
+	DAT	0xFFFF
+	
+:rsfs_header_name
+	DAT "ddfsirsfs", 0
+	
+:rsfs_header_rva_ep
+	DAT 0
+	
+:rsfs_header_rva_import
+	DAT 0
+	
+:rsfs_header_rva_export
+	DAT rsfs_header_export_table - rsfs_header
+	
+:rsfs_header_rva_relocations
+	DAT 0
+	
+:rsfs_header_imageSize
+	DAT 0
+	
+:rsfs_header_specHash
+	DAT 0x6ef4
+	DAT 0x797e
+	DAT 0xa9da
+	DAT 0x6c8f
+	DAT 0xad3e
+	DAT 0x7589
+	DAT 0xe617
+	DAT 0xeabd
+	
+:rsfs_header_export_table
+	DAT rsfs_fsStart
+	DAT rsfs_fsEnd
+	DAT rsfs_fGetRoot
+	DAT rsfs_fOpen
+	DAT rsfs_fClose
+	DAT rsfs_fRead
+	DAT rsfs_fWrite
+	DAT rsfs_fEnum
+	DAT 0xFFFF
+	
+rsfs_fsStart:
+	ret
+	
+rsfs_fsEnd:
+	ret
+
+
+;;
+;\brief Gets the root directory of a file descriptor for the filesystem.
+;\note Uses the cdecl calling convention \ref cdecl
+;\param pFile A pointer to the ouput file descriptor
+;;
+rsfs_fGetRoot:
+		_sfBegin(RSFS_HEADER_SIZE)
+		_push i
+		
+		_sfArg(i, 0)
+
+		set [i + VFS_FILE_OFFSET_FILEIDLO], RSFS_HEADER_SIZE
+		set [i + VFS_FILE_OFFSET_FILEIDHI], RSFS_ROOT_HI_ID
+		
+		_push RSFS_HEADER_SIZE
+		_sfLocalPtr(push, RSFS_HEADER_SIZE - 1)
+		_push 0
+		_push 0
+		call [i + VFS_FILE_OFFSET_MEDIAREAD]
+		add sp, 4
+		
+		;Access the data in reverse order, so local 0 is our numberRootEntries
+		_sfLocal([i + VFS_FILE_OFFSET_LENGTH], 0)
+
+		_pop i
+		_sfEnd()
+		ret
+
+;;
+;\brief Opens the specified file and stores its corresponding VFT_FILE structure in an output buffer.
+;\note Uses the cdecl calling convention \ref cdecl
+;\param pParent Pointer to the parent directory of the file that is to be open.
+;\param sFileNameMultibyte A pointer to a null-terminated ascii multi-byte string describing the file's name.
+;\param pFile A pointer to a initialized file descriptor where the open filed is stored.
+;\returns Returns a zero if the file does not exist, and anything else if it has been opened correctly.
+;;
+rsfs_fOpen:
+		_sfbegin(RSFS_ENTRY_SIZE) ;Allocate enough words on the stack for our read buffer
+		_push i
+		_push j
+		_push x
+		
+		_sfArg(j, 0)
+		_sfArg(i, 2)
+		
+		;Setup stack for calls to mediaread
+		_push RSFS_ENTRY_SIZE
+		_sfLocalPtr(push, RSFS_ENTRY_SIZE - 1)
+		_push [j + VFS_FILE_OFFSET_FILEIDLO]
+		_push 0
+		
+		set x, [j + VFS_FILE_OFFSET_LENGTH]
+		
+		rsfs_fOpen_findDirectoryLoop:
+			ife x, 0
+				jmp rsfs_fOpen_notFound
+				
+			call [i + VFS_FILE_OFFSET_MEDIAREAD]
+			add [sp + 1], RSFS_ENTRY_SIZE
+			
+			_sfLocalPtr(a, RSFS_ENTRY_LASTMEMBER - RSFS_ENTRY_OFFSET_NAME)
+			
+			_push a				;Setup args to mbCompare
+			_sfArg(push, 1) 
+			call string_sbCompare
+			add sp, 2
+			
+			sub x, 1
+
+			ifn a, 0
+				jmp rsfs_fOpen_findDirectoryLoop
+
+		set [i + VFS_FILE_OFFSET_FILEFLAGS], 0
+		
+		_sfLocalIfEquals(RSFS_ENTRY_LASTMEMBER - RSFS_ENTRY_OFFSET_TYPE, RSFS_ENTRYTYPE_DIRECTORY)
+			jmp rsfs_fOpen_openDirectory
+		
+		set [i + VFS_FILE_OFFSET_CURSOR], 0
+		_sfLocal([i + VFS_FILE_OFFSET_LENGTH], RSFS_ENTRY_LASTMEMBER - RSFS_ENTRY_OFFSET_SIZELENGTH)
+		_sfLocal([i + VFS_FILE_OFFSET_FILEIDLO], RSFS_ENTRY_LASTMEMBER - RSFS_ENTRY_OFFSET_DATAOFFSET)
+		
+		set [i + VFS_FILE_OFFSET_CURSOR], 0
+		
+		set a, 1
+	rsfs_fOpen_end:
+		add sp, 4
+		_pop x
+		_pop j
+		_pop i
+		_sfEnd()
+		ret
+	
+	rsfs_fOpen_openDirectory:
+		bor [i + VFS_FILE_OFFSET_FILEFLAGS], VFS_FILE_FILEFLAGS_DIRECTORY
+		set a, [sp + 1]
+		;add a, RSFS_ENTRY_SIZE
+		set [i + VFS_FILE_OFFSET_FILEIDLO], a ;The offset in the fs to this directory's children
+		_sfLocal(a, RSFS_ENTRY_LASTMEMBER - RSFS_ENTRY_OFFSET_SIZELENGTH)
+		set [i + VFS_FILE_OFFSET_LENGTH], a
+		set a, 1
+		jmp rsfs_fOpen_end
+	
+	rsfs_fOpen_notFound:
+		set a, 0
+		jmp rsfs_fOpen_end
+		
+rsfs_fClose:
+		ret
+
+;;
+;\brief Reads the contents of a given file descriptor. The descriptor must describe a file. Use on a directory will cause undefined behaviour.
+;\note Uses the cdecl calling convention \ref cdecl. If the end of file is reached, the eof bit is set.
+;\param pFile Pointer to file descriptor of file to be read from.
+;\param pBuffer Pointer to destination buffer where data is read into.
+;\param wBufferSize The number of bytes to be read into the buffer.
+;\returns Returns the number of bytes read into buffer.
+;;
+rsfs_fRead:
+		_sfBegin(0)
+		
+		_sfArg(a, 0)
+		set c, [a + VFS_FILE_OFFSET_CURSOR]
+		
+		ifl c, [a + VFS_FILE_OFFSET_LENGTH]
+			jmp rsfs_fRead_readFile
+		
+		bor [a + VFS_FILE_OFFSET_FILEFLAGS], VFS_FILE_FILEFLAGS_EOF
+		
+		set a, 0
+	rsfs_fRead_end:
+		_sfEnd()
+		ret
+		
+	rsfs_fRead_readFile:
+		add c, [a + VFS_FILE_OFFSET_FILEIDLO]
+		
+		_sfArgAdd([a + VFS_FILE_OFFSET_CURSOR], 2) ;advance cursor number of words read.
+		
+		_sfArg(push, 2)
+		_sfArg(push, 1)
+		_push c
+		_push 0
+		call [a + VFS_FILE_OFFSET_MEDIAREAD]
+		add sp, 4
+		
+		jmp rsfs_fRead_end
+		
+		
+		
+rsfs_fWrite:
+		ret
+	
+;;
+;\brief Locates a file adjacent to the current and initilizes the file pointer to reflect this accordingly.
+;\note Uses the cdecl calling convention \ref cdecl
+;\param pRootFile Pointer to the parent directory where its contained files will be enumerated
+;\param pFile Pointer to the current file, or a root file descriptor to get the first file. This buffer is overwritten with the next file in the chain.
+;\param sFileName An optional pointer to a buffer where the name of the file is stored. Must be a minimum size of RSFS_NAME_SIZE. If this argument is zero, the name is not placed into the buffer pointed to by this address.
+;\returns Returns a zero if there were no more files to enumerate.
+;;
+rsfs_fEnum:
+		_sfBegin(RSFS_ENTRY_SIZE)
+		_push i
+
+		_sfArg(a, 0)		
+		_sfArg(i, 1)
+
+		ife [i + VFS_FILE_OFFSET_FILEIDHI], RSFS_ROOT_HI_ID
+			set [i + VFS_FILE_OFFSET_FILEIDLO], [a + VFS_FILE_OFFSET_FILEIDLO]
+		
+		ifn [i + VFS_FILE_OFFSET_FILEIDHI], RSFS_ROOT_HI_ID
+			add [i + VFS_FILE_OFFSET_FILEIDLO], RSFS_ENTRY_SIZE
+			
+		set c, [i + VFS_FILE_OFFSET_FILEIDLO]
+		sub c, [a + VFS_FILE_OFFSET_FILEIDLO]
+		div c, RSFS_ENTRY_SIZE
+		
+		set x, [a + VFS_FILE_OFFSET_LENGTH]
+		ife x, c
+			jmp rsfs_fEnum_lastEntry
+		;ifu c, 0
+		;	set [i + VFS_FILE_OFFSET_FILEIDHI], [a + VFS_FILE_OFFSET_FILEIDHI]
+							
+		_push RSFS_ENTRY_SIZE
+		_sfLocalPtr(push, RSFS_ENTRY_SIZE - 1)
+		_push [i + VFS_FILE_OFFSET_FILEIDLO]
+		_push 0
+		call [i + VFS_FILE_OFFSET_MEDIAREAD]
+		add sp, 4
+		
+		_sfLocal([i + VFS_FILE_OFFSET_LENGTH], RSFS_ENTRY_LASTMEMBER - RSFS_ENTRY_OFFSET_SIZELENGTH)
+		;_sfLocal([i + VFS_FILE_OFFSET_FILEIDLO], RSFS_ENTRY_LASTMEMBER - RSFS_ENTRY_OFFSET_DATAOFFSET)
+		
+		set [i + VFS_FILE_OFFSET_FILEFLAGS], 0
+		_sfLocalIfEquals(RSFS_ENTRY_LASTMEMBER - RSFS_ENTRY_OFFSET_TYPE, RSFS_ENTRYTYPE_DIRECTORY)
+			set [i + VFS_FILE_OFFSET_FILEFLAGS], VFS_FILE_FILEFLAGS_DIRECTORY
+			
+		_sfArg(a, 2)
+		
+		ife a, 0
+			jmp rsfs_fEnum_end
+			
+		
+		_push RSFS_NAME_SIZE * 2
+		_sfLocalPtr(push, RSFS_ENTRY_LASTMEMBER - RSFS_ENTRY_OFFSET_NAME)
+
+		_push a
+		call string_singlebyteToWideChar
+		add sp, 3
+		set a, 1
+		
+	rsfs_fEnum_end:
+		set [i + VFS_FILE_OFFSET_FILEIDHI], 0
+		_pop i
+		_sfEnd()
+		ret
+		
+	rsfs_fEnum_lastEntry:
+		set a, 0
+		jmp rsfs_fEnum_end

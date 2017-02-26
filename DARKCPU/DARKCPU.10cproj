@@ -1,0 +1,38 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<project version="1.7.5" type="code">
+  <name>DARKCPU</name>
+  <properties>
+    <property name="code.generateBinaryOutput">True</property>
+    <property name="code.binaryOutputFilename">DARKCPU.bin</property>
+    <property name="code.generateHexOutput">True</property>
+    <property name="code.hexOutputFilename">DARKCPU.hex</property>
+    <property name="code.setFirstFile">True</property>
+    <property name="code.firstFile">main.10c</property>
+  </properties>
+  <references>
+    <project>common</project>
+  </references>
+  <files>
+    <file path="main.10c" />
+    <file path="peLoader.10c" />
+    <file path="threading.10c" />
+    <file path="memory.10c" />
+    <file path="bitmap.10c" />
+    <file path="interrupt.10c" />
+    <file path="clock.10c" />
+    <file path="device.10c" />
+    <file path="graphics.10c" />
+    <file path="string.10c" />
+    <file path="userInterfaceState.10c" />
+    <file path="keyboard.10c" />
+    <file path="mutex.10c" />
+    <file path="math.10c" />
+    <file path="vfs.10c" />
+    <file path="rsfs.10c" />
+    <file path="ramddssi.10c" />
+    <file path="..\initrd">
+      <property name="providerFileTypeName">Binary Resource file</property>
+      <property name="Identifier">ramddssi_initrd</property>
+    </file>
+  </files>
+</project>

@@ -1,0 +1,68 @@
+#define KEYBOARD_HIGHID		0x30cf
+#define KEYBOARD_LOWID		0x7406
+
+#define KEYBOARD_INTERRUPTCODE_CLEARBUFFER 	0
+#define KEYBOARD_INTERRUPTCODE_GETLASTKEY 	1
+#define KEYBOARD_INTERRUPTCODE_SETMESSAGE 	3
+
+#define KEYBOARD_KEY_BACKTICK					0x60
+
+keyboard_deviceIndex:
+	DAT 0xFFFF
+	
+; cdecl, no args, enables keyboard
+keyboard_init:
+	SET PUSH, B
+	
+	SET PUSH, keyboard_interrupt
+	SET PUSH, KEYBOARD_HIGHID
+	SET PUSH, KEYBOARD_LOWID
+	JSR device_allocateDevice
+	ADD SP, 3
+	
+	IFE A, DEVICE_DEVICEENTRY_INVALIDENTRY
+		INT INTERRUPT_MESSAGE_KERNELERROR
+		
+	SET [keyboard_deviceIndex], A
+	
+	SET PUSH, A
+	JSR device_getDeviceInterruptMessage
+	ADD SP, 1
+	
+	SET B, A
+	SET A, KEYBOARD_INTERRUPTCODE_SETMESSAGE ; Set keyboard to interrupt with message
+	HWI [keyboard_deviceIndex]
+	
+	SET B, POP
+	
+	SET PC, POP
+	
+;cdecl Will clear the keyboard input buffer
+keyboard_clearBuffer:
+	SET A, KEYBOARD_INTERRUPTCODE_CLEARBUFFER
+	HWI [keyboard_deviceIndex]
+	
+	SET PC, POP
+
+;cdecl returns last key pressed
+keyboard_getLastKey:
+	SET A, KEYBOARD_INTERRUPTCODE_GETLASTKEY ; Set clock to interrupt with message
+
+	HWI [keyboard_deviceIndex]
+
+	SET A, C
+	SET PC, POP
+
+;cdecl, broadcasts keypress to appropriate handlers
+keyboard_interrupt:
+	JSR keyboard_getLastKey
+	
+	IFE A, 0
+		SET PC, keyboard_getLastKey_end
+		
+	SET PUSH, A
+	JSR userInterfaceState_issueInput
+	ADD SP, 1
+	
+keyboard_getLastKey_end:
+	RFI A

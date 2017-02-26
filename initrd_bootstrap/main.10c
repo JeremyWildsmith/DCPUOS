@@ -1,0 +1,406 @@
+image_header:
+header_signature:
+	DAT 0x10C
+
+header_next:
+	DAT	0
+	
+header_name:
+	DAT 0x6574, 0x6D72, 0x6e69, 0x6c61, 0, 0, 0, 0, 0, 0 ; cstring of 'testprogram'
+	
+header_rva_ep:
+	DAT main
+	
+test_program_rva_import:
+	DAT header_import_table
+test_program_rva_export:
+	DAT header_export_table
+test_program_rva_offset:
+	DAT header_relocations
+test_program__imageSize:
+	DAT 0x100
+	
+header_import_table:
+	dat 0x656b, 0x6e72, 0x6c65, 0, 0, 0, 0, 0, 0, 0 ; cstring of 'kernel'
+import_memory_allocateMemory:
+	DAT 1
+import_string_compare:
+	dat 41
+import_string_length:
+	dat 44
+import_vfs_fGetRoot:
+	dat 35
+import_vfs_fEnum:
+	dat 39
+import_vfs_fOpenFileW:
+	dat 45
+import_vfs_string_replace:
+	dat 43
+import_memory_copy:
+	dat 3
+import_peLoader_root:
+	dat 46
+import_string_singlebyteToWideChar:
+	dat 42
+	DAT 0xFFFF
+	DAT 0x6873, 0x6c65, 0x006c, 0, 0, 0, 0, 0, 0, 0 ; cstring of 'shell'
+import_shell_createShell:
+	DAT 0
+import_shell_writeString:
+	DAT 1
+import_shell_processInput:
+	DAT 2
+import_shell_newLine:
+	dat 3
+	DAT 0xFFFF
+	DAT 0xFFFF
+header_export_table:
+	DAT 0xFFFF
+	
+header_relocations:
+	DAT 0xFFFF
+
+inputState:
+	DAT	0xFFFF
+
+inputStateVram:
+	DAT 0xFFFF
+	
+cursorPos:
+	DAT 0
+	
+shell_instance:
+	DAT 0xFFFF
+
+shell_prompt:
+	dat	">", 0
+	
+introMessage:
+	dat "TERMINAL V 1.0", 0
+	
+command_table:
+	
+	dat cmd_help
+	dat "help", 0
+	
+	dat cmd_ls
+	dat "ls", 0
+	
+	dat cmd_cd
+	dat "cd", 0
+	
+	dat cmd_ps
+	dat "ps", 0
+	
+	dat 0
+	
+currentDirectoryDescriptorRoot:
+	dat 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+currentDirectoryDescriptorEnum:
+	dat 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+fileName:
+	dat 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	
+main:
+	SET PUSH, B
+	SET B, SP
+	SUB SP, 1
+	
+	SET [B-1], A
+	
+	SET PUSH, SHELLINSTANCE_SIZE
+	JSR [A + import_memory_allocateMemory]
+	ADD SP, 1
+
+	SET Y, [B-1]
+	_push y
+	SET PUSH, input_handler
+	ADD [SP], Y
+	SET [Y + shell_instance], A
+	SET PUSH, A
+	JSR [Y + import_shell_createShell]
+	ADD SP, 3
+	
+	;;Init mail file pointer
+	relPushLabel currentDirectoryDescriptorRoot
+	_push 0
+	callRelPtr import_vfs_fGetRoot
+	add sp, 2
+	
+	_push introMessage
+	relCall writeResponseLine
+	add sp, 1
+	
+	relCall promptCommand
+	
+	ADD SP, 1 ; Delete temp data saved for session
+	SET B, POP ; Recover B register
+	SET PC, POP ; return to caller
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+promptCommand:
+	_push shell_prompt
+	relCall writeResponse
+	add sp, 1
+	ret
+
+;ARG1 Relative Message
+writeResponse:
+	_loadBase(y)
+	_push [sp+1]
+	add [sp], y
+	_push [Y + shell_instance]
+	callRelPtr import_shell_writeString
+	add sp, 2
+	set pc, pop
+	
+;ARG1 Relative Message
+writeResponseLine:
+	_push [sp + 1]
+	relCall writeResponse
+	add sp, 1
+	
+	_loadBase(y)
+	_push [Y + shell_instance]
+	callRelPtr import_shell_newLine
+	add sp, 1
+	ret
+	
+;;A Will be set to base address of callee module
+input_handler:
+	_push a
+	_push [sp + 2]
+	_push [a + shell_instance]
+	JSR [a + import_shell_processInput]
+	add sp, 3
+	
+	ife a, 0
+		ret
+	
+	_push a ; 2nd argument for process command
+	
+	_push 0 ;Replace all spaces with nulls to create null terminated string list
+	_push 0x20 ;Space character
+	_push a
+	callRelPtr import_vfs_string_replace
+	add sp, 3
+	
+	_push a ; First argument for process command
+	relCall processCommand
+	add sp, 2
+	
+	relCall promptCommand
+	
+	ret
+	
+;Arg1 number of strings in string list.
+;ARG2 String list of command
+processCommand:
+	_sfBegin(0)
+	_push I
+	_push J
+	_loadBase(I)
+	
+	set J, I
+	add J, command_table
+	
+	processCommand_next:
+		ife [J], 0
+			jmpD(processCommand_unknown)
+		
+		_sfArg(push, 1)
+		_push J
+		add [sp], 1
+		jsr [I + import_string_compare]
+		add sp, 2
+		
+		ife a, 0
+			jmpD(processCommand_found)
+	
+		_push J
+		add [sp], 1
+		jsr [I + import_string_length]
+		_pop J
+		add J, a
+		add j, 1
+		
+		jmpU(processCommand_next)
+	
+	processCommand_unknown:
+		relCall unknown_command
+	
+	processCommand_end:
+		_pop J
+		_pop I
+		_sfEnd
+		ret
+		
+	processCommand_found:
+		
+		_sfArg(push, 1)
+		_sfArg(push, 0)
+		add I, [J]
+		jsr I
+		add sp, 2
+		jmpU(processCommand_end)
+
+
+unknown_command_response:
+	dat "Unknown command. Use help cmd.", 0
+unknown_command:
+	_loadBase(x)
+	_push unknown_command_response
+	relCall writeResponseLine
+	add sp, 1
+	ret
+
+cmd_help_response:
+	dat "Help yourself to a cup of shut the fuck up.", 0
+cmd_help:
+	_loadBase(x)
+	_push cmd_help_response
+	relCall writeResponseLine
+	add sp, 1
+	ret
+
+
+folderIdentifier:
+	dat "  <DIR>  - ", 0
+
+fileIdentifier:
+	dat "  <FILE> - ", 0
+
+cmd_ls_init:
+
+cmd_ls:
+	_push 9
+	relPushLabel currentDirectoryDescriptorRoot
+	relPushLabel currentDirectoryDescriptorEnum
+	callRelPtr import_memory_copy
+	add sp, 3
+
+cmd_ls_printFile:
+	relPushLabel fileName
+	relPushLabel currentDirectoryDescriptorEnum
+	relPushLabel currentDirectoryDescriptorRoot
+	callRelPtr import_vfs_fEnum
+	add sp, 3
+	
+	ife a, 0
+		ret
+
+	_loadBase(x)
+	ifn [x + currentDirectoryDescriptorEnum + VFS_FILE_OFFSET_FILEFLAGS], VFS_FILE_FILEFLAGS_DIRECTORY
+		jmpD cmd_ls_printFile_writeFileIdentifier
+
+	_push folderIdentifier
+	relCall writeResponse
+	add sp, 1
+	jmpD cmd_ls_printFile_writeFileName
+
+	cmd_ls_printFile_writeFileIdentifier:
+	_push fileIdentifier
+	relCall writeResponse
+	add sp, 1
+
+	cmd_ls_printFile_writeFileName: 
+	_push fileName
+	relCall writeResponseLine
+	add sp, 1
+	
+	jmpU cmd_ls_printFile
+	
+cmd_cd_missingArgument_message:
+	dat "Missing directory operand.",0
+	
+cmd_cd_noFile_message:
+	dat "Directory doesn't exist.",0
+
+cmd_cd:
+	_sfBegin(0)
+	
+	_sfArg(a, 0)
+	ife a, 0
+		jmpD cmd_cd_missingArgument
+	
+	_sfArg(x, 1)
+	add x, 3 ;We know the command is two characters, plus one for null terminator = next string in string list
+	
+	ife [x], 0x5C ;Backslash
+		jmpD cmd_cd_goBack
+	
+	relPushLabel currentDirectoryDescriptorRoot
+	_push x
+	relPushLabel currentDirectoryDescriptorRoot
+	callRelPtr import_vfs_fOpenFileW
+	add sp, 3
+	
+	ife a, 0
+		jmpD cmd_cd_noFile
+	
+	jmpD cmd_cd_end
+	
+	cmd_cd_missingArgument:
+	
+	_push cmd_cd_missingArgument_message
+	relCall writeResponseLine
+	add sp, 1
+	
+	cmd_cd_end:
+	_sfEnd
+	ret
+	
+	cmd_cd_noFile:
+	_push cmd_cd_noFile_message
+	relCall writeResponseLine
+	add sp, 1
+	
+	jmpU cmd_cd_end
+
+	cmd_cd_goBack:
+	
+	ifn [x + 1], 0
+		jmpU cmd_cd_noFile_message
+		
+	;;Init mail file pointer
+	relPushLabel currentDirectoryDescriptorRoot
+	_push 0
+	callRelPtr import_vfs_fGetRoot
+	add sp, 2
+	
+	jmpU cmd_cd_end
+	
+cmd_ps_nameBuffer:
+	dat 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+cmd_ps:
+	_sfBegin(0)
+	_push z
+	
+	relLoadLabel(z, import_peLoader_root)
+	set z, [z]
+	
+	cmd_ps_nextProcess:
+	
+	ife [z], 0xFFFF
+		jmpD cmd_ps_end
+		
+	set z, [z]
+	add z, PEIMAGE_OFFSET_NEXT
+	
+	_push 10
+	_push z
+	add [sp], 1
+	relPushLabel cmd_ps_nameBuffer
+	callRelPtr import_string_singlebyteToWideChar
+	add sp, 3
+	
+	_push cmd_ps_nameBuffer
+	relCall writeResponseLine
+	add sp, 1
+	
+	jmpU cmd_ps_nextProcess
+
+	cmd_ps_end:
+	_pop z
+	_sfEnd
+	ret

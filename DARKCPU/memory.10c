@@ -1,0 +1,271 @@
+;;
+;\section memoryManager Memory Manager
+;
+;\subsection memoryManagerDetails Module Details
+;\details This subsystem performs memory operations such as allocation, freeing and reserving of memory.
+;\author Jeremy (0x10cforums.com)
+;\version 1.0
+;\date Dec, 15, 2012
+;
+;\subsection memoryManagerDetails Memory Management
+;
+;The memory manager (\ref MemoryManager) in DarkCPU is responsible for allocating, freeing and protecting memory inside of the system. All memory inside of DarkCPU divided into sections referred to as memory chunks, which are a given words division of memory. The
+;particular size of a memory chunk is defined by \ref MEMORY_CHUNK_SIZE
+;The state of each memory section is defined inside of the \ref memory_allocationBitmap. Where the first bit in the bitmap defines the state of the first memory chunk, and the next bit defines the state of the following memory chunk, etc...
+;
+;When the user requests to allocate a region memory of a given size, the memory manager will round up the size such that it aligns to the size of a memory chunck. I.e, allocating 1 word via the memory manager will actually result
+;in a memory allocation of \ref MEMORY_CHUNK_SIZE words. This is done to minimize the size of the allocation table and maximize the number of possible memory divisions.
+;
+;****
+;
+;\subsection memoryManagerReservingMemory Reserving Manager
+;The DarkCPU Memory Manager allows the user to reserve a region of memory. A reserved memory region is ignored by the memory manager and treated as if it hadn't even existed in the first place.
+;The BootCode uses this routine of the memory manager to reserve the region of memory the kernel image has been loaded into.
+;
+;\attention It is important to note that reserving memory does not guarantee that the memory region being reserved has not already been allocated or reserved. I.e, it is important to be aware of what lies inside of the memory region you are reserving.
+;****
+;
+;\subsection memoryManagerMemorySwapping Memory Swapping
+;\note This has not yet been implemented
+;
+;Memory Swapping is an effective way for the DCPU kernel to maximize the use of its memory without an MMU. It allows on-demand defragmentation of memory, allowing more contiguous regions
+;of memory to exist and allowing the system to allocate more memory than is physically accessible. The swapping system works by allowing the user to allocate
+;swapped memory. Swapped memory is a special kind of memory in the DarkCPU kernel as will be described below.
+;Swapped memory can be placed in either a locked or unlocked state.
+;
+;When the user initially allocates a swapped memory region, it is placed in an unlocked state, which means it has no valid base address and that the memory region does not exist in memory.
+;
+;After placing the swapped memory region into a locked state via one of the swapped memory locking routines, it will be loaded at a given base address in memory. The specific address it is loaded at will be
+;provided by the locking routine.
+;
+;The user may then continue to mutate or read the data region, as if it were a normal region of allocated memory. Once the application has finished working with the memory, it can be placed into an 'unlocked' state.
+;
+;When a swapped memory region is unlocked, it is not expected to be read from or written to and thus the kernel assumes that, if need be, the memory region can be relocated or swapped out on to another storage device. When the memory region is locked again,
+;the kernel will assure it is loaded back into memory and will provide the caller of the locking routine the details regarding which base address it is loaded at.
+;
+;\note Wherever possible, swapped memory should be used over the primitive memory allocation methods for reasons described above. 
+;
+;\note Just because a swapped memory region is in an unlocked state, does not mean that the kernel will swap it out of memory. In all likelihood, if the system is not pressed for memory and the memory is not too poorly fragmented, the data region will be left 
+;untouched to optimize the locking procedure. However this is not guaranteed and the user should not assume that is hasn't been swapped out.
+;;
+
+;;
+;\type WORD
+;\details Defines the size of a single memory chunk in words.
+;;
+#define MEMORY_CHUNK_SIZE 64
+
+;;
+;\type WORD
+;\details Defines the maximum number of memory chuncks which can be allocated. I.e, the number of memory chuncks which constitute the system memory.
+;;
+#define MEMORY_MAX_CHUNKS 1024
+
+;;
+;\type WORD
+;\details Defines the index of the last memory chunk in memory.
+;;
+#define MEMORY_CHUNK_LASTINDEX 1023
+
+;;
+;\type WORD
+;\details Defines the size of the internal allocation bitmap in words.
+;;
+#define MEMORY_ALLOCATIONBITMAP_SIZE 64
+
+;;
+;\type WORD*
+;\details Consists of a series of words which create the allocation bitmap.
+;;
+memory_allocationBitmap:
+	dat	0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000
+	dat	0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000
+	dat	0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000
+	dat	0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000
+	dat	0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000
+	dat	0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000
+	dat	0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000
+	dat	0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000 
+
+;;
+;\type MUTEX*
+;\details The mutex object used to synchronize threads accessing the memory manager. I.e, to avoid two threads allocating memory at the same time. Which might result in one or the other from allocating the same region of memory.
+;;
+memory_accessMutex:
+	dat 0x0000
+
+;;
+;\call cdecl
+;\details This routine is responsible for initilizing the memory manager and must be invoked prior to any other calls beloning to the memory manager module. This routine must be called only once during initilization. Typically, this is done inside of the BootCode. Outside of the BootCode, this routine should not be called.
+;\return(VOID)
+;;
+memory_init:
+		call mutex_create				; Create the memory manager's access mutex. This is used to synchronize memory management operations so they do not conflict.
+		set [memory_accessMutex], a
+		ret
+
+;;
+;\call cdecl
+;\details This routine is responsible for reserving memory, that is, keeping the memory manager from opening such memory for allocation. Refer to \ref ReservingMemory
+;\param(WORD*, pBaseAddress) A pointer to base of the memory region being reserved
+;\param(WORD, wSize) The size of the memory region to reserve. This is rounded upwards to aligned with a memory chunck. 
+;\return(VOID)
+;;
+memory_reserve:
+		_sfBegin(0)
+		
+		_push [memory_accessMutex] 			; Lock the memory access mutex to assure we are the only thread executing inside of this routine
+		call mutex_lock
+		add sp, 1
+		
+		_sfArg(c, 0)
+		_sfArg(a, 1)
+		
+		div c, MEMORY_CHUNK_SIZE 			; Translating location in terms of chunks
+	
+		div a, MEMORY_CHUNK_SIZE			; Translating size in terms of chunks
+		ifn ex, 0
+			add a, 1
+		
+		_push 0
+		_push a								;Push the number of bits in length of our run (equal to the number of memory chunks allocated by the memory region.)
+		_push c								;Push the base index (the first bit that defines our memory region) to the stack.
+		_push memory_allocationBitmap
+		call bitmap_nandRun
+		add sp, 4
+		
+		
+		_push [memory_accessMutex]
+		call mutex_release
+		add sp, 1
+		
+		_sfEnd()
+		ret
+
+;;
+;\call cdecl
+;\details Allocates a specified region of memory.
+;\param(WORD, wSize) The size of the memory region to be allocated. This is rounded upwards to aligned with a memory chunck. 
+;\return(WORD*) Returns the base address of the newly allocated region of memory, or 0xFFFF is there is an insufficient amount of contigous memory chucks available for the allocation operation to succeed.
+;;
+memory_allocate:
+		_sfBegin(0)
+		
+		;Lock the access mutex to prevent multiple threads from executing this routine at a time. Which would result in a collision of allocation.
+		_push [memory_accessMutex]
+		call mutex_lock
+		add sp, 1
+		
+		_sfArg(c, 0)								;Calculate the size of the allocation in terms of memory chuncks.
+		div c, MEMORY_CHUNK_SIZE
+		ifn ex, 0
+			add c, 1
+			
+		_push c
+		_push MEMORY_ALLOCATIONBITMAP_SIZE
+		_push memory_allocationBitmap
+		call bitmap_findClearRun					;Find a clear run of bits with x free entries, where 'x' is the number of memory chuncks which constitute the newly allocated memory region's size.
+		add sp, 3									;Cleanup all the arguments, with the exception of the last one pushed, which is equal to the size of region we allocated. If allocation succeeds, this is used to make the appropriate call to reserve the memory.
+
+		
+		ife a, 0xFFFF								; if no run was found, return to the caller with the error status in 'a', which is 0xFFFF
+			jmp memory_allocateMemory_end
+	
+		;Otherwise, reserve the memory region and return to the caller
+		_push a										;Preserve the state of 'A' as it contains the number of bit index that defines the origin of our allocation. We need this to calculate the address our memory was allocated at.
+
+		_push 0x0000
+		_push c										;Push the number of bits in length of our run (equal to the number of memory chunks allocated by the memory region.
+		_push a										;Push the base index (the first bit that defines our memory region) to the stack.
+		_push memory_allocationBitmap
+		call bitmap_nandRun
+		add sp, 4
+		
+	memory_allocateMemory_end:
+		_push [memory_accessMutex]					;Release the access mutex so that reserve memory can gain exlcusive access to the memory region
+		call mutex_release
+		add sp, 1
+	
+		_pop a
+		mul a, MEMORY_CHUNK_SIZE
+		_sfEnd()
+		ret
+	
+	memory_allocateMemory_noMemory:
+
+		set a, 0xFFFF								;return 0xFFFF to symbolize that there was an error allocating memory.
+
+		jmp memory_allocateMemory_end	
+
+;;
+;\call cdecl
+;\details Frees a previously allocated region of memory
+;\param(WORD*, pBaseAddress) Specifies the base address of the memory region to be freed
+;\param(WORD, wSize) The size of the memory region to be freed. This is rounded upwards to aligned with a memory chunck. 
+;\return(VOID)
+;;
+memory_free:
+		_sfBegin(0)
+		
+		_push [memory_accessMutex] 			; Lock the memory access mutex to assure we are the only thread executing inside of this routine
+		call mutex_lock
+		add sp, 1
+		
+		_sfArg(c, 0)
+		_sfArg(a, 1)
+		
+		div c, MEMORY_CHUNK_SIZE 			; Translating location in terms of chunks
+	
+		div a, MEMORY_CHUNK_SIZE			; Translating size in terms of chunks
+		ifn ex, 0
+			add a, 1
+		
+		_push 0xFFFF
+		_push a								;Push the number of bits in length of our run (equal to the number of memory chunks allocated by the memory region.)
+		_push c								;Push the base index (the first bit that defines our memory region) to the stack.
+		_push memory_allocationBitmap
+		call bitmap_nandRun
+		add sp, 4
+		
+		
+		_push [memory_accessMutex]
+		call mutex_release
+		add sp, 1
+		
+		_sfEnd()
+		ret
+
+
+;;
+;\call cdecl
+;\details Coppies a series of words from one region to another.
+;\param(WORD*, pDest) Specifies the base address of the memory region to copy to
+;\param(WORD*, pSrc) Specifies the base address of the memory region to copy from
+;\param(WORD, wSize) The size of the memory region to copy in words. 
+;\return(VOID)
+;;
+memory_copy:
+		_sfBegin(0)
+		_push i
+		_push j
+		
+		_sfArg(a, 2)
+		_sfArgAdd(a, 0)
+		
+		_sfArg(i, 0) ; i is dest
+		_sfArg(j, 1) ; j is src
+		
+		memory_copy_loop:
+			ife i, a
+				jmp memory_copy_end
+
+			sti [i], [j]
+			
+			jmp memory_copy_loop
+		
+	memory_copy_end:
+		_pop j
+		_pop i
+		_sfEnd()
+		ret
+		

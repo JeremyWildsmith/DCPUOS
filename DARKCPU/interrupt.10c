@@ -1,0 +1,142 @@
+;;
+;\section interrupt Interrupt Handler
+;
+;\subsection interruptDetails Module Details
+;\details This module contains the kernel's primary interrupt handler and branches\filters interrupts off to their appropriate handlers
+;\author Jeremy (0x10cforums.com)
+;\version 1.0
+;\date Dec, 18, 2012
+;
+;\subsection interrupts Interrupts
+;
+;Whenever a critical event occurs in the system or when a peripheral device wishes to communicate with the DCPU, an interrupt with a given message code is raised. The currently executing
+;thread is halted and control is passed immediately over to the kernel's interrupt manager to deal with the interrupt.
+;
+;There are two catagories of interrupts, both of which require interrupts be enabled for use:
+; + Software Interrupts
+;   + Interrupts are raised on a software level. I.e, are raised when the INT instruction is invoked. This is typically used when the software must make the kernel aware of something. Message codes for software interrupts always have their highest 8 bits cleared.
+;
+;\anchor hardwareInterrupts
+; + Hardware Interrupts
+;   + Interrupts raised by peripheral hardware. These sorts of interrupts are raised when a device has the intention of communicating with the kernel. I.e, to notify the kernel that the requested sectors
+;     have been read from the HMD into memory. All hardware interrupts will have their interrupt codes masked with INTERRUPT_DEVICEMASK, I.e, the highest 8 bits of the interrupt message are always set for a hardware interrupt.
+;   + All hardware interrupts are routed from here to the \ref DeviceManager module
+;
+;\subsection softwareInterrupts Software Interrupts
+;
+;Interrupt Code                    |     Description
+;----------------------------------|----------------
+;INTERRUPT_MESSAGE_DEBUGBREAK      | Executes an ISR which returns to the caller immediately. If DarkCPU is running inside of a debugger, a debug breakpoint can be placed on this routine to break the debugger whenever it is called. This allows one to strategically place invokes to this interrupt in areas of code where the debugger in use may not support breakpoints. Useful for debugging user applications loaded into memory at runtime.
+;INTERRUPT_MESSAGE_KERNELERROR     | Halts the kernel when it detects an error. Disabling interrupts to prevent damage done to the DCPU 
+;INTERRUPT_MESSAGE_THREADENDCYCLE  | An interrupt raised by a thread when it has completed its task or wishes to  pass control over to the next thread in queue.
+;INTERRUPT_MESSAGE_THREADEXCEPTION | Not yet implemented. Raised when a thread encounters an exception. The kernel will walk through the thread's SEH chain to find an appropriate exception handler.
+;
+;;
+
+;;
+;\type WORD
+;\details Defines the interrupt code for a DEBUGBREAK. Refer to \ref softwareInterrupts
+;;
+#define INTERRUPT_MESSAGE_DEBUGBREAK		3
+
+;;
+;\type WORD
+;\details Defines the interrupt code for a KERNELERROR. Refer to \ref softwareInterrupts
+;;
+#define INTERRUPT_MESSAGE_KERNELERROR 		4
+
+;;
+;\type WORD
+;\details Defines the interrupt code for a THREADENDCYCLE. Refer to \ref softwareInterrupts
+;;
+#define INTERRUPT_MESSAGE_THREADENDCYCLE	5
+
+;;
+;\type WORD
+;\details Defines the interrupt code for a THREADEXCEPTION. Refer to \ref softwareInterrupts
+;;
+#define INTERRUPT_MESSAGE_THREADEXCEPTION	6
+
+;;
+;\type WORD
+;\details Defines the mask which must be applied to the all device interrupt message codes. Refer to \ref hardwareInterrupts
+;;
+#define INTERRUPT_DEVICEMASK			0xFF00
+
+;;
+;\call cdecl
+;\details Enables interrupts to be processed by the system. Once called, the interrupt manager will be active and devices can communicate to the kernel via interrupts
+;\return(VOID)
+;;
+interrupt_enable:
+		ias interrupt_handler	; Set interrupt handler.
+		iaq 0					; Disable interrupt queue
+		ret						; return to caller
+
+;;
+;\call cdecl
+;\details Disabled interrupts from being processed by the system.
+;\return(VOID)
+;;
+interrupt_disable:
+	iaq 1						; Enable interrupt queue
+	ias 0						; Disable interrupts
+	ret	 						; Return to caller 
+
+;;
+;\call isrcall
+;\details The primary interrupt handler of the DarkCPU kernel. This routine is responsible for locating the appropriate handlers for the thrown interrupt. If no appropriate handler is found, the interrupt is ignored.
+;\return(VOID)
+;;
+interrupt_handler:
+
+	ife a, INTERRUPT_MESSAGE_DEBUGBREAK
+		jmp interrupt_handler_breakpoint
+	
+	ife a, INTERRUPT_MESSAGE_THREADENDCYCLE
+		jmp threading_interrupt
+	
+	ife a, INTERRUPT_MESSAGE_KERNELERROR
+		jmp interrupt_handler_kernelError
+	
+	;If 'A' does not fall within the mask of device interrupts
+	ifl a, INTERRUPT_DEVICEMASK
+		rfi	A	;End interrupt handler
+		
+	jmp device_interruptHandler
+	
+;;
+;\call isrcall
+;\details The interrupt handler for INTERRUPT_MESSAGE_DEBUGBREAK. Refer to \ref softwareInterrupts
+;\return(VOID)
+;;
+interrupt_handler_breakpoint:
+	rfi a
+
+;Naked function...
+;	Handles all interrupts invoked by the clock
+interrupt_handler_clock:
+	JSR clock_interrupt
+	
+	;Important you jump and not call to this routine.
+	SET PC, threading_interrupt ; !Important! call last, does not return control to caller
+	RFI A
+
+interrupt_handler_kernelErrorMessage:
+	dat "KERNEL ERROR KERNEL ERROR KERNEL ERROR KERNEL ERROR KERNEL ERROR ", 0
+	
+interrupt_handler_kernelError:
+	call interrupt_disable
+	
+	_push [kernelState]
+	call userInterfaceState_setActive
+	call userInterfaceState_getVram
+	add sp, 1
+	
+	_push 0
+	_push interrupt_handler_kernelErrorMessage
+	_push a
+	call graphics_writeString
+	add sp, 3
+	
+	sub pc, 1

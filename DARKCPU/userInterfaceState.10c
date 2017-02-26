@@ -1,0 +1,192 @@
+#define USERINTERFACESTATE_OFFSET_PARENTPID					0
+#define USERINTERFACESTATE_OFFSET_INPUTHANDLER				1
+#define USERINTERFACESTATE_OFFSET_NEXT						2
+#define USERINTERFACESTATE_META_SIZE						3 ;IF CHANGING THIS, BEWARE THAT userInterfaceState's SIZE macro assumes it is 384 and thus it must be changed as well
+#define USERINTERFACESTATE_SIZE								387
+#define USERINTERFACESTATE_INVALIDSTATE						0xFFFF
+
+#define USERINTEFACESTATE_LEM_LOWID		0xf615
+#define USERINTEFACESTATE_LEM_HIGHID	0x7349
+
+userInterfaceState_rootState:
+DAT USERINTERFACESTATE_INVALIDSTATE
+
+userInterfaceState_activeState:
+DAT USERINTERFACESTATE_INVALIDSTATE
+
+;USERINTERFACESTATE_OFFSET_INPUTHANDLER points to function:
+;cdecl void handleInput(WORD keyCode)
+
+;USERINTERFACESTATE_OFFSET_PARENTPID contains PID of parent process. 0xFFFF is no owner
+
+;Structure followed by graphics memory...
+
+userInterfaceState_lemDeviceIndex:
+	DAT 0xFFFF
+
+userInterfaceState_init:
+	SET PUSH, B
+	
+	SET PUSH, 0
+	SET PUSH, USERINTEFACESTATE_LEM_HIGHID
+	SET PUSH, USERINTEFACESTATE_LEM_LOWID
+	JSR device_allocateDevice
+	ADD SP, 3
+	
+	IFE A, DEVICE_DEVICEENTRY_INVALIDENTRY
+		INT INTERRUPT_MESSAGE_KERNELERROR
+		
+	SET [userInterfaceState_lemDeviceIndex], A
+	
+	SET B, POP
+	
+	SET PC, POP
+	
+
+;cdecl Creates a user interface state.
+;ARG1 is base address of userInterfaceState
+;ARG2 is parent process ID
+;ARG3 is input handler
+;Return: pointer to userInterfaceState structure
+userInterfaceState_createState:
+
+	set a, [sp + 1]
+	;Setup data structure...
+	SET [A + USERINTERFACESTATE_OFFSET_PARENTPID], [SP+2]
+	SET [A + USERINTERFACESTATE_OFFSET_INPUTHANDLER], [SP+3]
+	SET [A + USERINTERFACESTATE_OFFSET_NEXT], USERINTERFACESTATE_INVALIDSTATE
+	
+	IFE [userInterfaceState_rootState], USERINTERFACESTATE_INVALIDSTATE
+		SET PC, userInterfaceState_createState_rootEntry
+		
+	SET Y, [userInterfaceState_rootState]
+	
+	userInterfaceState_createState_seekLastLoop:
+		IFE [Y + USERINTERFACESTATE_OFFSET_NEXT],  USERINTERFACESTATE_INVALIDSTATE
+			SET PC, userInterfaceState_createState_entry
+			
+		SET Y, [Y + USERINTERFACESTATE_OFFSET_NEXT]
+		SET PC, userInterfaceState_createState_seekLastLoop
+		
+userInterfaceState_createState_entry:
+	SET [Y + USERINTERFACESTATE_OFFSET_NEXT], A
+	SET PC, POP
+	
+userInterfaceState_createState_rootEntry:
+	SET [userInterfaceState_rootState], A
+	SET PC, POP
+	
+
+;ARG1 is pointer to userInterfaceState structure
+userInterfaceState_destroyState:
+	IFE [SP+1], [userInterfaceState_activeState] ;Clear active state
+		JSR userInterfaceState_clearActiveState
+
+	SET A, [SP+1]
+
+	SET Y, [userInterfaceState_rootState]
+	IFN Y, [SP+1]
+		SET PC, userInterfaceState_destroyState_seekLastLoop
+	
+	SET Y, userInterfaceState_rootState
+	SET PC, userInterfaceState_destroyState_end
+		
+	userInterfaceState_destroyState_seekLastLoop:
+		ADD Y, USERINTERFACESTATE_OFFSET_NEXT
+		IFE [Y],  [SP+1]
+			SET PC, userInterfaceState_destroyState_end
+			
+		SET Y, [Y]
+		SET PC, userInterfaceState_createState_seekLastLoop
+
+userInterfaceState_destroyState_end:
+	SET [Y], [A + USERINTERFACESTATE_OFFSET_NEXT]
+			
+	SET PUSH, GRAPHICS_VRAM_SIZE
+	SET PUSH, [SP+1]
+	JSR memory_free
+	ADD SP, 2
+	
+	SET PC, POP
+
+userInterfaceState_destroyState_rootEntry:
+
+;cdecl
+;Toggles through to news state
+userInterfaceState_toggleState:
+	SET C, [userInterfaceState_activeState]
+	SET C, [C + USERINTERFACESTATE_OFFSET_NEXT]
+	IFE C, USERINTERFACESTATE_INVALIDSTATE
+		SET C, [userInterfaceState_rootState]
+	
+	IFE C, userInterfaceState_toggleState_noEntries
+		SET PC, userInterfaceState_toggleState_noEntries
+		
+	SET PUSH, C
+	JSR userInterfaceState_setActive
+	ADD SP, 1
+		
+userInterfaceState_toggleState_noEntries:
+	SET PC, POP
+
+;cdecl
+;ARG1 is pointer to userInterfaceState struct whos video memory is being requested.
+userInterfaceState_getVram:
+	SET A, [SP+1]
+	ADD A, USERINTERFACESTATE_META_SIZE
+	SET PC, POP
+
+;cdecl Sets a userInterfaceState to the active state.
+;ARG1 is pointer to userInterfaceState structure
+userInterfaceState_setActive:
+	SET PUSH, B
+	
+	SET B, [SP+2]
+	SET [userInterfaceState_activeState], B
+	ADD B, USERINTERFACESTATE_META_SIZE
+	
+	SET A, GRAPHICS_INTERRUPTCODE_MAPSCREEN
+	HWI [userInterfaceState_lemDeviceIndex]
+
+	SET B, POP
+
+	SET PC, POP
+
+;cdecl clears active userInterfaceState from use
+userInterfaceState_clearActiveState:
+	SET PUSH, B
+	
+	SET B, 0
+	SET [userInterfaceState_activeState], 0
+	
+	SET A, GRAPHICS_INTERRUPTCODE_MAPSCREEN
+	
+	HWI [userInterfaceState_lemDeviceIndex]
+	
+	SET B, POP
+	SET PC, POP
+
+;cdecl, arg1 input
+userInterfaceState_issueInput:
+
+	IFN [SP+1], KEYBOARD_KEY_BACKTICK
+		SET PC, userInterfaceState_issueInput_passInput
+	
+	JSR userInterfaceState_toggleState
+	SET PC, userInterfaceState_issueInput_end
+	
+userInterfaceState_issueInput_passInput:
+	IFE [userInterfaceState_activeState], USERINTERFACESTATE_INVALIDSTATE
+		SET PC, userInterfaceState_issueInput_end
+	
+	SET C, [userInterfaceState_activeState]
+	
+	SET PUSH, [SP+1]
+	SET A, [C + USERINTERFACESTATE_OFFSET_PARENTPID] ; A must always be set to target module's base address
+	JSR [C + USERINTERFACESTATE_OFFSET_INPUTHANDLER]
+	ADD SP, 1
+	
+	SET PC, POP
+	
+userInterfaceState_issueInput_end:
+	SET PC, POP

@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<project version="1.7.6" type="code">
+  <name>common</name>
+  <properties>
+    <property name="code.generateBinaryOutput">true</property>
+    <property name="code.binaryOutputFilename">common.bin</property>
+    <property name="code.generateHexOutput">false</property>
+    <property name="code.hexOutputFilename">common.hex</property>
+    <property name="code.setFirstFile">false</property>
+  </properties>
+  <references />
+  <files>
+    <file path="ddsfsi.10c" />
+    <file path="ddssi.10c" />
+    <file path="kerneldef.10c" />
+    <file path="macros.10c" />
+  </files>
+</project>

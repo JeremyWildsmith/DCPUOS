@@ -1,0 +1,401 @@
+;;
+;\file m35-10c.c
+;\anchor M35
+;\brief Executable image that acts as a MD35 driver implementing both the DDSSI and the DDSCS specifications.
+;\author Jeremy (0x10cforums.com)
+;\version 1.0
+;\date April, 1, 2013
+;
+;;
+
+#define MD35_SECTORSIZE	512
+#define MD35_ALLOCSTACKSIZE 10
+
+#define MD35_DEVIDHI 0x4fd5
+#define MD35_DEVIDLO 0x24c5
+
+#define MD35_STATE_READY 	0x0001
+#define MD35_STATE_READY_WP 0x0002
+
+#define MD35_INTERRUPTCODE_POLL				0
+#define MD35_INTERRUPTCODE_SETINTEERRUPT	1
+#define MD35_INTERRUPTCODE_READ				2
+
+#define MD35_ERROR_NONE						0
+
+#define MD35_INVALID_SECTOR					0xFFFE
+
+:image_header
+signature:
+	dat 0x10C
+
+header_next:
+	dat	0x0001	;PEFlag ForceInit 
+
+name:
+	dat 0x646d, 0x3533, 0, 0, 0, 0, 0, 0, 0, 0 ;cstring of 'md35'
+
+rva_ep:
+	dat main
+
+rva_import:
+	dat import_table
+	
+rva_export:
+	dat export_table
+	
+rva_relocation:
+	dat 0
+	
+imageSize:
+	dat m35_size
+	
+import_table:
+	dat 0xFFFF
+	
+export_table:
+	dat getFlags
+	dat getSectorSize
+	dat getVolumeSize
+	dat read
+	dat write
+	dat 0xFFFF
+
+;--------------
+dat 0xFFFF, 0, 0, 0, 0, 0, 0, 0, 0
+	:allocAddressStack
+	dat 0
+	
+dat 0xFFFF, MD35_INVALID_SECTOR, MD35_INVALID_SECTOR, MD35_INVALID_SECTOR, MD35_INVALID_SECTOR, MD35_INVALID_SECTOR, MD35_INVALID_SECTOR, MD35_INVALID_SECTOR, MD35_INVALID_SECTOR
+	:allocSectorStack
+	dat MD35_INVALID_SECTOR
+
+:deviceIndex
+	dat 0
+	
+:accessMutex
+	dat 0
+
+:blockingMutex
+	dat 0
+
+:bufferSector
+	dat 0
+
+main:
+	_sfBegin(0)
+	
+	_rpush interruptHandler
+	_push MD35_DEVIDHI
+	_push MD35_DEVIDLO
+	call [KERNEL_EXPORT_BASE + KERNEL_DEVICE_ALLOCATEDEVICE]
+	add sp, 3
+	rset deviceIndex, a
+	
+	_push a
+	call [KERNEL_EXPORT_BASE + KERNEL_DEVICE_GETDEVICEINTETTUPTMESSAGE]
+	;Intentionally not cleaing up stack, popped later below
+	
+	set x, a
+	set a, MD35_INTERRUPTCODE_SETINTEERRUPT
+	hwi pop
+	
+	call [KERNEL_EXPORT_BASE + KERNEL_MUTEX_CREATE]
+	rset accessMutex, a
+	
+	call [KERNEL_EXPORT_BASE + KERNEL_MUTEX_CREATE]
+	rset blockingMutex, a
+	
+	_push MD35_SECTORSIZE
+	call [KERNEL_EXPORT_BASE + KERNEL_MEMORY_ALLOCATE]
+	add sp, 1
+	
+	rset bufferSector, a
+	
+	_sfEnd()
+	ret
+	
+getFlags:
+	set a, 0
+	ret
+	
+getSectorSize:
+	set a, 512
+	ret
+	
+getVolumeSize:
+	set a, 1440
+	ret
+
+read:
+	_sfBegin(0)
+	_push j
+	_push i
+	
+	setr y, accessMutex
+	_rppush accessMutex
+	call [KERNEL_EXPORT_BASE + KERNEL_MUTEX_LOCK]
+	;stack not cleaned up for call to mutex_free
+	
+	_sfArg(i, 0)
+	_sfArg(j, 3)
+	_sfArgAdd(j, 1)
+	
+	set a, j
+	div j, MD35_SECTORSIZE
+	add j, i
+	
+	mod a, MD35_SECTORSIZE
+	
+	ifn a, 0
+		add j, 1
+	
+	read_readData: 
+		_push i
+		rcall findCache
+		add sp, 1
+		
+		ife a, 0
+			jmp read_readData_readSector
+		
+		set y, [a - MD35_ALLOCSTACKSIZE]
+		jmp read_readData_copySector
+		
+		_rppush blockingMutex
+		call [KERNEL_EXPORT_BASE + KERNEL_MUTEX_LOCK]
+		add sp, 1
+		
+		read_readData_readSector:
+			
+			_rppush bufferSector
+			set y, [sp]
+			set x, i
+			
+			setr ex, deviceIndex
+			set a, MD35_INTERRUPTCODE_READ
+			
+			_push b
+			hwi ex
+			_pop b
+			
+			set a, j
+			sub a, i
+			
+			_rppush blockingMutex
+			
+			ife a, 1
+				call [KERNEL_EXPORT_BASE + KERNEL_MUTEX_WAIT]
+				
+			ifg a, 1
+				call [KERNEL_EXPORT_BASE + KERNEL_MUTEX_LOCK]
+				
+			add sp, 1
+			
+			_pop y
+			
+		read_readData_copySector:
+			set a, j
+			sub a, i
+			
+			_sfArg(push, 3)
+			_push y
+			
+			ifg [sp + 1], MD35_SECTORSIZE
+				mod [sp + 1], MD35_SECTORSIZE
+			
+			ifg a, 1
+				set [sp + 1], MD35_SECTORSIZE
+			
+			_sfArgIfEquals(0, i)
+				jmp read_readData_copySector_correctOffsetFirstSector
+				
+			set a, MD35_SECTORSIZE
+			_sfArgSub(a, 1)
+			sub [sp+1], a
+			jmp read_readData_copySector_correctOffset_end
+			
+			
+		read_readData_copySector_correctOffsetFirstSector:
+				
+			_sfArgAdd([sp], 1)
+			set [sp+1], MD35_SECTORSIZE
+			_sfArgSub([sp+1], 1)
+				
+		read_readData_copySector_correctOffset_end:
+		
+			set a, i
+			_sfArgSub(a, 0)
+			mul a, MD35_SECTORSIZE
+			_sfArgSub(a, 1)
+			
+			_sfArg(push, 2)
+			add [sp], a
+			call [KERNEL_EXPORT_BASE + KERNEL_MEMORY_COPY]
+			add sp, 3
+			
+			add i, 1
+			ifl i, j
+				jmp read_readData
+	
+	;Borrows argument from call to mutex_lock
+	call [KERNEL_EXPORT_BASE + KERNEL_MUTEX_RELEASE]
+	add sp, 1
+	
+	_pop i
+	_pop j
+	_sfEnd()
+	ret
+	
+write:
+	ret
+	
+beginCache:
+	set c, sp
+	set sp, allocAddressStack
+	
+	beginCache_findAllocSlot:
+		ife [sp], 0
+			jmp beginCache_allocSector
+			
+		ife [sp], 0xFFFF
+			jmp beginCache_end
+			
+		_push [sp - 1]
+		
+		jmp beginCache_findAllocSlot
+		
+	beginCache_allocSector:
+	set a, sp
+	set sp, c
+	
+	_sfBegin(0)
+	_push a
+	
+	_sfArg(push, 0)
+	rcall findCache
+	
+	add sp, 1
+	ifn a, 0
+		jmp beginCache_allocSector_end
+		
+	_push 512
+	call [KERNEL_EXPORT_BASE + KERNEL_MEMORY_ALLOCATE]
+	add sp, 1
+		
+	ife a, 0
+		jmp beginCache_allocSector_end
+		
+	_push a
+	
+	_push MD35_SECTORSIZE
+	_push a
+	_push 0
+	_sfArg(push, 0)
+	rcall read
+	add sp, 4
+		
+	_pop a
+	_pop c
+	set [c], a
+	_sfArg([c + MD35_ALLOCSTACKSIZE], 0)
+		
+	beginCache_allocSector_end:
+	_sfEnd()
+	ret
+		
+	beginCache_end:
+	set sp, c
+	ret
+	
+endCache:
+	_sfBegin(0)
+	
+	_sfArg(push, 0)
+	rcall findCache
+	add sp, 1
+	
+	ife a, 0
+		jmp endCache_end
+	
+	_push a
+	
+	_push MD35_SECTORSIZE
+	_push [a - MD35_ALLOCSTACKSIZE]
+	call [KERNEL_EXPORT_BASE + KERNEL_MEMORY_FREE]
+	add sp, 2
+	
+	_pop a
+	
+	set [a], MD35_INVALID_SECTOR
+	set [a - MD35_ALLOCSTACKSIZE], 0
+	
+	endCache_end:
+	
+	_sfEnd()
+	ret
+
+findCache:
+	set y, [sp + 1]
+	
+	set c, sp
+	set sp, allocSectorStack
+	
+	set a, 0
+	
+	findCache_findSectorSlot:
+		ife [sp], 0xFFFF
+			jmp findCache_end
+			
+		ife [sp], y
+			jmp findCache_findSectorSlot_end
+		
+		_push [sp - 1]
+		jmp findCache_findSectorSlot
+		
+	findCache_findSectorSlot_end:
+
+		set a, sp
+
+	findCache_end:
+		set sp, c
+		ret
+
+
+;--------------
+
+interruptHandler:
+	_push b
+	
+	;cdecl corrupts these. Naked ISR does not permit these to be corrupted
+	_push a
+	_push c
+	_push y
+	_push ex
+	
+	set a, MD35_INTERRUPTCODE_POLL
+	setr b, deviceIndex
+	hwi b
+	
+	ifn c, MD35_ERROR_NONE
+		int KERNEL_INTERRUPT_MESSAGE_KERNELERROR
+		
+	_rppush blockingMutex
+	
+	ife b, MD35_STATE_READY
+		call [KERNEL_EXPORT_BASE + KERNEL_MUTEX_RELEASE]
+	
+	ife b, MD35_STATE_READY_WP
+		call [KERNEL_EXPORT_BASE + KERNEL_MUTEX_RELEASE]
+	
+	add sp, 1
+	
+	_pop ex
+	_pop y
+	_pop c
+	_pop a
+	
+	_pop b
+	rfi a
+		
+#segment M35_END 1100
+m35_size:

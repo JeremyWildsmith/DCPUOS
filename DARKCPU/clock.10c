@@ -1,0 +1,114 @@
+;;
+
+;\section clock Clock
+;
+;\subsection clockDetails Module Details
+;
+;\details This module contains the kernel's primary clock driver. The clock driver will allocate and gain exlusive access to a clock device for internal use by the kernel only. An abstract interface to this driver is exported. Eg, to get the number of elapsed ticks since the timer initilized.
+;\author Jeremy (0x10cforums.com)
+;\version 1.0
+;\date Dec, 18, 2012
+;
+;
+;\subsection kernelClock Kernel Clock
+;
+;The kernel's \ref BootCode will initialize the Kernel Clock Driver before it enables threading and finalizes the boot procedure. The kernel clock driver is primarily for internal use, and will allocate the clock from the \ref DeviceManager to acquire exclusive access to the device. The interface
+;to the Kernel's Internal Clock Driver outside of the kernel should remain very primitive.
+;
+;The Kernel Clock Driver's primary purpose is to pass interrupts to the \ref ThreadingManager , so that it knows when to swap threads.
+;
+;;
+
+;;
+;\type WORD
+;\details Defines the upper word of the device id that defines the clock.
+;;
+#define CLOCK_HIGHID	0x12d0
+
+;;
+;\type WORD
+;\details Defines the lower word of the device id that defines the clock.
+;;
+#define CLOCK_LOWID		0xb402
+
+;;
+;\type WORD
+;\details Defines the interrupt code to used to set the tick frequency of the device.
+;;
+#define CLOCK_INTERRUPTCODE_SETTICKS	0
+
+;;
+;\type WORD
+;\details Defines the interrupt code to get ellapsed ticks of the device.
+;;
+#define CLOCK_INTERRUPTCODE_GETTICKS 	 1
+
+;;
+;\type WORD
+;\details Defines the interrupt code to set the interrupt message of the device.
+;;
+#define CLOCK_INTERRUPTCODE_SETMESSAGE 	 2
+
+;;
+;\type WORD
+;\details Used to store the device index that belong to the allocated kernel clock device.
+;;
+:clock_deviceIndex
+	dat 0xFFFF
+
+;;
+;\call cdecl
+;\details This routine is responsible for initilizing the Kernel Clock Driver and must be invoked prior to any other calls beloning to the Kernel Clock Driver module.
+;\param(WORD, wClockFrequency) The clock will trigger an interrupt x/60 times in a single second, where x is the argument provided here.
+;\return(VOID)
+;;
+clock_init:
+		_sfBegin(0)
+		_push b
+		
+		_push clock_interrupt					; Attempt to allocate our clock device
+		_push CLOCK_HIGHID
+		_push CLOCK_LOWID
+		call device_allocateDevice
+		add sp, 3
+		
+		ife a, DEVICE_DEVICEENTRY_INVALIDENTRY	; If allocation fails, invoke a kernel error
+			int INTERRUPT_MESSAGE_KERNELERROR
+			
+		set [clock_deviceIndex], a				; Otherwise, store the device index for further use.
+			
+		set a, CLOCK_INTERRUPTCODE_SETTICKS
+		
+		_sfArg(b, 1)
+		hwi [clock_deviceIndex]					;Set the clock frequency
+			
+		_push [clock_deviceIndex]
+		call device_getDeviceInterruptMessage	;Get the allocated interrupt message for our device
+		add sp, 1
+		
+		set b, a
+		set a, CLOCK_INTERRUPTCODE_SETMESSAGE	;Set clock to interrupt with this message
+		hwi [clock_deviceIndex]
+		
+		_pop b
+		_sfEnd()
+		ret
+	
+;;
+;\call cdecl
+;\details Acquires the total elapsed ticks since the driver initialized.
+;\return(VOID) The total number of ticks elapsed since the driver initialized.
+;;
+clock_getTicks:
+		set a, CLOCK_INTERRUPTCODE_GETTICKS
+		hwi [clock_deviceIndex]
+		ret
+
+;;
+;\call isrcall
+;\details The clock's interrupt handler will notify the \ref ThreadingManager when an interrupt has been raised so that it is aware of the time interval that has passed.
+;\return(VOID)
+;;
+clock_interrupt:
+		jmp threading_interrupt
+		rfi a

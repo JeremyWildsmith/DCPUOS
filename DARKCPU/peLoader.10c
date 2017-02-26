@@ -1,0 +1,493 @@
+;;
+;\section PeLoader PeLoader
+;
+;\subsection peLoaderDetails Module Details
+;\details This module contains various functions that can be used to load executable images, drivers 
+;and librarys into memory and begin executing them. 
+;\author Jeremy (0x10cforums.com)
+;\version 1.0
+;\date Dec, 14, 2012
+;
+;****
+;
+;\subsection peLoaderExec Decription of Executables
+;
+;Any given executable module in darkcpu can export, import and access kernel level routines to communicate with hardware devices.
+;As such, all executable images can act as either a library, a driver, an application or a hybrid between all three. Each executable image
+;can define or omit an entrypoint in the header, this entrypoint defines where the task's initial thread is created (if the entrypoint is omitted in the image header, 
+;no thread is created for the executable image when it is loaded.)
+;
+;Executable images are initialized in memory by using the \ref PeLoader module, and are structured in memory as a linked list.
+;Each initialized executable image has a 'next' member of sorts inside of the image's header that points towards the next executable image in the chain. The kernel uses this linked list to keep track of all the exeuctables loaded in memory.
+;The root of this linked list is always the kernel image.
+;
+;****
+;
+;\subsection peLoaderExportTable Export Table
+;
+;\anchor ExportAddressTable
+;The export table describes which routines to export to other tasks running on the system such that these exports can be located and called upon through another task.
+;The export table consists of a list of RVelative Virtual Addresses (RVAs) to functions which are exported. Each export in the table has a corresponding 'ordinal' which is equal the index of
+;that entry in the export table. This ordinal value is used by other modules to locate specific exported routines from the executable image.
+;
+;As the export table contains a list of RVAs, once the executable image is loaded into memory, the loader will add the image's base address to every entry in its export table, effectivley translating
+;these relative addresses to the actual address of the exported data.
+;
+;****
+;
+;\subsection peLoaderImportExport IAT/EAT
+;
+;The import table of an executable image doubles as the import address table and the import table. When the executable image is initialized by the \ref PeLoader, its import table is
+;replaced with the appropriate import address table. The difference between the two is described below.
+;
+;An import table describes which routines need to be imported from other loaded executable images in the system. The import table consists of a series of ModuleImport structure and is terminated
+;with a word equal to PEIMAGE_INVALID_IMPORT. The layout of a ModuleImport structure is defined below:
+;
+;Members of ModuleImport (In Order)
+;+ Name of module to import functions from (size is PEIMAGE_NAMELEN padded with null)
+;+ List of ordinal values (each entry will be replaced with the address of the import they refer to when loaded in memory.)
+;+ Module Import Entry terminated with PEIMAGE_INVALID_IMPORT
+;Another ModuleImport Entry
+;...
+;+ Module Import Entry terminated with PEIMAGE_INVALID_IMPORT
+;...
+;+ Import Table terminated with a PEIMAGE_INVALID_IMPORT
+;
+;\anchor PeFlags
+;
+;\subsection peLoaderPeFlags Flags & Next
+;--------------
+;When loading the executable, this member is treated as PeFlags, which defines how to load the module. This flags
+;are described in the table below.
+;
+;Once image has been loaded in to memory, this member is treated as a pointer to the next executable image loaded
+;in memory as per a linked list structure.
+;
+;\warning after an executable image has been loaded into memory, the PeFlags are destroyed and should be treated as 'Next'.
+;
+;Flag                      | Description
+;--------------------------|------------------
+; PEIMAGE_PEFLAG_FORCEINIT | Forces the applications entrypoint to be invoked and then to return before execution continues.
+;
+;****
+;\subsection peLoaderRelocTable Relocation Table
+;
+;\note Not yet implemented.
+;
+;\subSection peLoaderLayout Executable Image Format
+;-----------------------------
+;The layout of an executable image is as follows:
+;
+;Offset                               			| Member Name               | Description of Member
+;-----------------------------------------------|---------------------------|----------------------
+; PEIMAGE_OFFSET_SIGNATURE            			| ImageSignature            | Stores the signature of an executable image. This is equal to PEIMAGE_SIGNATURE for all valid executable images and is used to identify a valid Executable Image
+; PEIMAGE_OFFSET_NEXT, PEIMAGE_OFFSET_PEFLAGS   | {Next, PeFlags}           | Pointer to the next executable image in the linked list, or PEIMAGE_INVALID_NEXT if the current entry is the last in the chain of executable images. Used by the kernel to keep track of executable images and should not be used by the user
+; PEIMAGE_OFFSET_NAME                 			| Name                      | Name of the module. This is used to identify the module in memory and located any of its exported data. Other executable images will use this name in their import table to find data exported by this module. The name has a max size of PEIMAGE_NAMELEN
+; PEIMAGE_OFFSET_RVA_ENTRY_POINT      			| RvaEntryPoint             | Describes the RVA of the module's entry point where its first thread is created. Uses the \ref asyncCall calling convention. If this is equal to zero, it will be loaded as usual but will not have a thread created for it
+; PEIMAGE_OFFSET_RVA_IMPORT_TABLE     			| RvaImportTable            | Describes the RVA of the module's import table, or zero if the module does not have an import table.
+; PEIMAGE_OFFSET_RVA_EXPORT_TABLE     			| RvaExportTable            | Describes the RVA of the module's export table, or zero if the module does not have an export table.
+; PEIMAGE_OFFSET_RVA_RELOCATION_TABLE 			| RvaRelocations            | Describes the RVA of the module's relocations table, or zero if the module does not have a relocation table.
+; PEIMAGE_OFFSET_IMAGE_SIZE          			| ImageSize                 | Describes the size of the executable memory
+; PEIMAGE_OFFSET_IMAGE_MD5SPECHASH    			| MD5SpecHash               | The origin of the 8 word MD5SpecHash for the module (\ref MD5SpecHash), or 0 if this module does not implement a particular specification. This hash is stored such that the upper most significant word of the hash is stored here. It is followed, in order of decending significance, by the remaining words of the hash.
+; PEIMAGE_OFFSET_IMAGE_MD5SPECHASH + 1			| Remaining 7 words of hash | Where the remaining for the MD5SpecHash is stored.
+;          ...                        			| Code or data Section      | Where image data or code is stored
+;\attention The PE Image format is highly subject to change at this stage in development. Some entries which may be introduced are the reference counter and the initial stack size. Others may be introduced as well, throwing off the alignment of the table you see above.
+;;
+
+;;
+;\type WORD
+;\details PEIMAGE_SIGNATURE This defines the first word in every executable image that validates it is an executable image. The \ref PeLoader will fail to load exeuctable images which do not poses this signature as their first byte.
+;;
+#define PEIMAGE_SIGNATURE 0x10C
+
+;;
+;\type WORD
+;\details This defines the number of words allocated for the module's name in the Executable Image File's Name member, refer to \ref PeImageFormat.
+;;
+#define PEIMAGE_NAMELEN	10
+
+;;
+;\type WORD
+;\details Defines the value given to an invalid next entry, usually meaning that there are no more entries in the chain. Refer to \ref PeImageFormat
+;;
+#define PEIMAGE_INVALID_NEXT 0xFFFF
+
+;;
+;\type WORD
+;\details Defines the value given to an invalid import entry, usually meaning that there are no more entries in the import table. Refer to \ref PeImageFormat
+;;
+#define PEIMAGE_INVALID_IMPORT 0xFFFF
+
+;;
+;\type WORD
+;\details Defines the value given to an invalid export entry, usually meaning that there are no more entries in the export table. Refer to \ref PeImageFormat
+;;
+#define PEIMAGE_INVALID_EXPORT 0xFFFF
+
+;;
+;\type WORD
+;\details Offset to the image's PEIMAGE structure pointing to the signature member. Refer to \ref PeImageFormat
+;;
+#define PEIMAGE_OFFSET_SIGNATURE 0
+
+;;
+;\type WORD
+;\details Flags for loading of PEImage. Refer to \ref PeImageFormat
+;;
+#define PEIMAGE_OFFSET_PEFLAGS 1
+
+;;
+;\type WORD
+;\details Offset to the image's PEIMAGE structure pointing to the NEXT member. Refer to \ref PeImageFormat
+;;
+#define PEIMAGE_OFFSET_NEXT 1
+
+;;
+;\type WORD
+;\details Offset to the image's PEIMAGE structure pointing to the NAME member. Refer to \ref PeImageFormat
+;;
+#define PEIMAGE_OFFSET_NAME 2
+
+;;
+;\type WORD
+;\details Offset to the image's PEIMAGE structure pointing to the RVA_ENTRY_POINT member. Refer to \ref PeImageFormat
+;;
+#define PEIMAGE_OFFSET_RVA_ENTRY_POINT 	12
+
+;;
+;\type WORD
+;\details Offset to the image's PEIMAGE structure pointing to the RVA_IMPORT_TABLE member. Refer to \ref PeImageFormat
+;;
+#define PEIMAGE_OFFSET_RVA_IMPORT_TABLE 13
+
+;;
+;\type WORD
+;\details Offset to the image's PEIMAGE structure pointing to the PEIMAGE_OFFSET_RVA_EXPORT_TABLE member. Refer to \ref PeImageFormat
+;;
+#define PEIMAGE_OFFSET_RVA_EXPORT_TABLE 14
+
+;;
+;\type WORD
+;\details Offset to the image's PEIMAGE structure pointing to the PEIMAGE_OFFSET_RVA_EXPORT_TABLE member. Refer to \ref PeImageFormat
+;;
+#define PEIMAGE_OFFSET_RVA_RELOCATION_TABLE 15
+
+;;
+;\type WORD
+;\details Offset to the image's PEIMAGE structure pointing to the RVA_IMAGE_SIZE member. Refer to \ref PeImageFormat
+;;
+#define PEIMAGE_OFFSET_IMAGE_SIZE 		16
+
+;;
+;\type WORD
+;\details Offset to the image's PEIMAGE structure pointing to the MD5SpecHash member. Refer to \ref PeImageFormat
+;;
+#define PEIMAGE_OFFSET_IMAGE_MD5SPECHASH 17
+
+;;
+;\type WORD
+;\details PeImage loading flag. Refer to \ref PeImageFormat
+;;
+#define PEIMAGE_PEFLAG_FORCEINIT 0x1
+
+;;
+;\type IMAGE*
+;\details Points to first entry in the linked list of excecutable images. Stores the first entry in the linked list of executable images loaded into memory. This is always the kernel.
+;;
+peLoader_root:
+	DAT	kernel_image_header
+
+;;
+;\details Loads an executable image from the filesystem and Initializes\Executes it. This perfroms similar to peLoader_initProcess, only it first loads an image from the filesystem and then initilizes it.
+;\param(FILE*, pFile) A pointer to the file descriptor of the file to be loaded into memory.
+;\param(FILE*, pSourceDirectory) A pointer to a file descriptor of the directory where dependencies are looked for.
+;\return(STATUS) Returns a 0 on error, or the base address of the loaded executable if it was loaded successfully.
+;\call cdecl
+;;
+peLoader_loadImage:
+		_sfBegin(1)
+		_sfArg(c, 0)
+		
+		set a, [c + VFS_FILE_OFFSET_LENGTH] ;Get file size in bytes and align it in to words
+		div a, 2
+		ifn ex, 0
+			add a, 1
+			
+		_sfLocalSet(0, a) ;Store the size as a local variable
+		
+		_push a
+		call memory_allocate
+		add sp, 1
+		
+		_sfArg(push, 1) ;setup stack for a call to peLoader_initProcess
+		_push a 
+		
+		_sfArg(c, 0)
+		
+		_sfLocal(push, 0)
+		_push a
+		_push c
+		call vfs_fRead
+		add sp, 3
+		
+		call peLoader_initImage
+		_pop c						;The base address of our memory allocated for our executable image
+		add sp, 1
+		
+		ife a, 0
+			jmp peLoader_loadImage_failed
+		
+		set a, c					;return base address of executable image
+		
+	peLoader_loadImage_end:
+		_sfEnd()
+		ret
+	
+	peLoader_loadImage_failed:
+		_sfArg(y, 0)
+		
+		;If initialization failed, deallocate the region of memory we were loading the executable into.
+		_sfLocal(push, 0)
+		_push c
+		call memory_free
+		add sp, 2
+		set a, 0
+		
+		jmp peLoader_loadImage_end
+		
+;;
+;\details Initializes and executes an executable image in memory. This routine will take the address of the loaded executable image in memory provided via the arguments, initializes the image's Import Address Table, adds it to the task chain, corrects its export table (adds its base address to the export rvas described in the export table) and creates a thread at its entrypoint.
+;\param(IMAGE*, pImage) A pointer to the raw executable image in memory to Initializes.
+;\param(FILE*, pSourceDirectory) A pointer to a file descriptor of the directory where dependencies are looked for.
+;\call cdecl
+;\return(STATUS) Returns a 0 on error, and anything else otherwise.
+;;
+peLoader_initImage:
+		_sfBegin(0)
+		
+		_push i												;Preserve the state of the i register so we do not corrupt it.
+		
+		_sfArg(i, 0)										;Set I a pointer to the raw executale image
+	
+		ifn [i], PEIMAGE_SIGNATURE							;Check for the proper signature in the header, if it isn't there, cause error
+			jmp peLoader_create_error
+		
+		add i, [i + PEIMAGE_OFFSET_RVA_IMPORT_TABLE]		;Seek to the Images import table.
+		
+		ife i, 0											;Skip initilizing the import table.
+			jmp peLoader_create_initImportTable_end
+		
+		;Setup the image's import address table
+		peLoader_create_initImportTableLoop:
+			ife [i], PEIMAGE_INVALID_IMPORT					;If the current entry in the ModuleImport is equal to PEIMAGE_INVALID_IMPORT, it is the 
+				jmp peLoader_create_initImportTable_end		;end of the list, as PEIMAGE_INVALID_IMPORT is used to terminate the list
+		
+			_sfArg(push, 1)
+			_push i
+			call peLoader_findImageEx						;Locate the module we are importing from, and store the result in A
+			add sp, 2
+			
+			add i, PEIMAGE_NAMELEN							;Seek past the name entry of the executable image's ModuleImport structure
+															;and seek to the list of imported ordinals
+			
+			;Loop through ModuleImport's ordinal entries and translate them to the appropriate corresponding address of the imported function.
+			peLoader_create_moduleImportLoop:
+				ife [i], PEIMAGE_INVALID_IMPORT						;If the current ordinal is equal to PEIMAGE_INVALID_IMPORT, end the loop as PEIMAGE_INVALID_IMPORT terminates the list of ordinals.
+					jmp peLoader_create_moduleImportLoop_end
+	
+				set c, [a + PEIMAGE_OFFSET_RVA_EXPORT_TABLE]		;Calculate the address of the export table we are importing from into C
+				
+				add c, a
+				add c, [i]											;Add the ordinal number to the base address of the export table (thus calculating the address of the ordinals corresponding imported function)
+				set [i], [c]										;Replace the ordinal value with the address of the import it refers to.
+				
+				add i, 1											;Increase the cursor by one, moving to the next ordinal.
+				jmp peLoader_create_moduleImportLoop
+				
+				peLoader_create_moduleImportLoop_end:
+					add i, 1										;Increase the cursor again, moving to the next ModuleImport structure.
+			
+			jmp peLoader_create_initImportTableLoop
+	
+		peLoader_create_initImportTable_end:
+			
+			
+		
+		;Correct export table of the executable image (add the base address)
+		_sfArg(i, 0)												;Set I to point to the base address of the executable image being loaded	
+
+		ife [i + PEIMAGE_OFFSET_RVA_EXPORT_TABLE], 0
+			jmp peLoader_create_fixExport_end						;If there is no defined rva to the export table, skip fixing of relocations.
+			
+		add i, [i + PEIMAGE_OFFSET_RVA_EXPORT_TABLE]				;Add to I, seeking to its export table.
+			
+		peLoader_create_fixExportLoop:
+			ife [i], PEIMAGE_INVALID_EXPORT							;If current export entry is invalid, it is the end of the loop since PEIMAGE_INVALID_EXPORT is used to terminate the export list.
+				jmp peLoader_create_fixExport_end
+				
+			_sfArg(c, 0)											;Add to the entry the base address of the executable image.
+			add [i], c
+			add i, 1												;Advance the cursor by one, thus seeking to the next export entry.
+			jmp peLoader_create_fixExportLoop
+		peLoader_create_fixExport_end:
+		
+		;Calculate EP and create thread there.
+		_sfArg(i, 0)												;Calculate the offset to the executable image's rvaEntrypoint member
+
+		ife [i + PEIMAGE_OFFSET_RVA_ENTRY_POINT], 0 				;IF EP equals base i.e, RVA was zero
+			jmp peLoader_create_noEntryPoint 						;No entrypoint was set, skip step.
+		
+		ifb [i + PEIMAGE_OFFSET_PEFLAGS], PEIMAGE_PEFLAG_FORCEINIT
+			jmp peLoader_create_forceInit
+		
+		_push i
+		add i, [i + PEIMAGE_OFFSET_RVA_ENTRY_POINT]					;Add the rva to the image's entrypoint
+		_push i														;and push it to the stack as well for a call to create thread
+		call threading_createThread
+		add sp, 2
+		
+		jmp peLoader_create_noEntryPoint
+		
+	peLoader_create_forceInit:
+		add i, [i + PEIMAGE_OFFSET_RVA_ENTRY_POINT]					;Add the rva to the image's entrypoint
+		_push i	
+		call [i + PEIMAGE_OFFSET_RVA_ENTRY_POINT]
+		add sp, 1
+		
+	peLoader_create_noEntryPoint:
+		;Terminate linked list by setting Next entry to INVALID
+		_sfArg(i, 0)
+		set [i + PEIMAGE_OFFSET_NEXT], PEIMAGE_INVALID_NEXT
+		
+		call peLoader_findLastImage									;Locate the last executable image in the linked list of executable images
+		_sfArg([a + PEIMAGE_OFFSET_NEXT], 0)						;Set its next entry to the executable image we just loaded (add this executable image to the chain.)
+	
+	peLoader_create_end:
+
+		_pop i														;Restore state of I register
+		_sfEnd()
+		ret
+			
+	peLoader_create_error:
+		set a, 0													;return a zero on error
+		jmp peLoader_create_end
+
+;;
+;\details Locates the last executable image in the linked list of initialized executable images (whose root node is defined in peLoader_root) and returns the base address of that image.
+;\return(void*) Returns address of the last executable image in the list of initialized executable images.
+;\call cdecl
+;;
+peLoader_findLastImage:
+		set a, [peLoader_root]									;Set a to the root note of the linked list
+		
+		peLoader_findLastImage_loopFindNext:
+			ife [a + PEIMAGE_OFFSET_NEXT], PEIMAGE_INVALID_NEXT	;If the current executable image has an invalid next entry, it is the last entry in the chain.
+				jmp peLoader_findLastImage_loopFindNext_end
+			
+			set a, [a + PEIMAGE_OFFSET_NEXT] 					;Otherwise, seek to the next entry.
+			jmp peLoader_findLastImage_loopFindNext
+			
+		peLoader_findLastImage_loopFindNext_end:
+		
+		ret
+
+;;
+;\details Determines the address of an executable in memory and returns the base address of that image. This is done by walking through the linked list and comapring each entries name with the one we are looknig for.
+;\param(Char*, sNameSinglebyte) Name of the module to locate the base address of in ascii single-byte.
+;\return(STATUS) Returns base address of executable image in memory, or zero if the entry was not found.
+;\call cdecl
+;;
+peLoader_findImage:
+		_sfBegin(0)
+		
+		_push i												;Preserve the state of the i register so we do not corrupt it.
+		
+		_sfArg(push, 0)										;Setup the stack frame for a call to compare string. This pushes the address of the name we're looking for
+		_push 0												;and this is an null place holder, where we will store the address of an executable image's name in as we step through linked list of executable images.
+		
+		set i, [peLoader_root]								;Set i to the root entry in the linked list
+		
+		peLoader_findModule_loop:
+			ife i, PEIMAGE_INVALID_NEXT						;If current entry is invalid (i.e, if the current entry is the last entry)
+				jmp peLoader_findModule_error				;and we haven't located the image, return error
+				
+			set [sp], i										;Calculate the address of the images name, and store it on the stack
+			add [sp], PEIMAGE_OFFSET_NAME
+			
+			call string_sbCompare							;compare the two strings
+			
+			ife a, 0										;if the two strings are equal
+				jmp peLoader_findModule_loop_end			;exit the loop, and proceed to return the executable image's base address to the caller
+			
+			set i, [i + PEIMAGE_OFFSET_NEXT]
+			jmp peLoader_findModule_loop
+			
+		peLoader_findModule_loop_end:
+		
+		
+		add sp, 2											;Cleanup stack after call to string_compare
+		set a, i											;Set a to i (i is equal to the base address of the image.)
+
+	peLoader_findImage_end:
+		_pop i												;restore the state of the i register
+		_sfEnd()
+		ret
+	
+	peLoader_findModule_error:
+		add sp, 2
+		set a, 0
+		
+		jmp peLoader_findImage_end
+;;
+;\details Determines the address of an executable (if it is not already in memory, it is loaded into memory) and returns the base address of that image.
+;\param(char*, sNameSinglebyte) Name of the module to locate the base address of in ascii single byte.
+;\param(FILE*, pSourceDirectory) The source directory to look for the executable image in, if it is not found to be already loaded in memory
+;\return(void*) Returns base address of executable image in memory, or zero if the entry was not found.
+;\call cdecl
+;;
+peLoader_findImageEx:
+		_sfBegin(VFS_FILE_SIZE)
+		
+		_sfArg(push, 0)
+		call peLoader_findImage
+		add sp, 1
+		
+		ifn a, 0
+			jmp peLoader_findImageEx_end
+		
+		_sfLocalPtr(push, VFS_FILE_OFFSET_LASTMEMBER)		
+		_sfArg(push, 0)
+		_sfArg(push, 1)
+		call vfs_fOpenFile
+		add sp, 3
+		
+		ife a, 0
+			jmp peLoader_findImageEx_end
+		
+		_sfArg(push, 1)
+		_sfLocalPtr(push, VFS_FILE_OFFSET_LASTMEMBER)
+		call peLoader_loadImage
+		add sp, 2
+		
+	peLoader_findImageEx_end:
+		_sfEnd()
+		ret
+;;
+;\details Determines the address of an executable's export given the export ordinal.
+;\param(void*, pBaseAddress) Base address of the executable image to search for the ordinal in.
+;\param(WORD, wOrdinal) Ordinal corresponding to the export to find.
+;\return(void*) Returns address of the data exported at that ordinal.
+;\call cdecl
+;;
+peLoader_findExport:
+		_sfBegin(0)
+		
+		_sfArg(a, 0)
+		add a, [a + PEIMAGE_OFFSET_RVA_EXPORT_TABLE]
+		_sfArgAdd(a, 1)
+		
+		set a, [a]
+		
+		_sfEnd()
+		ret
+		
