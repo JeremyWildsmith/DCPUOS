@@ -164,3 +164,6 @@ pip-log.txt
 
 initrd
 *.bin
+*.hex
+*.dll
+initrd_filesystem/*
