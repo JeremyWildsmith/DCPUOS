@@ -115,7 +115,7 @@ bitmap_nandRun:
 		mod y, 16
 		
 		;Ignore warnings, trick used to overflow ex register and quickly obtain a desired mask
-		;shr 0xFFFF, y	;Create a bitmap that covers the bits we want to leave alone (i.e, preceed the start index bit)
+		shr 0xFFFF, y	;Create a bitmap that covers the bits we want to leave alone (i.e, preceed the start index bit)
 		set c, ex
 				
 		set x, 0
