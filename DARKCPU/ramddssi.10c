@@ -9,7 +9,7 @@
 ;
 ;;
 
-#define RAMDDSSI_VOLUMESIZE 900 ;IN WORDS
+#define RAMDDSSI_VOLUMESIZE 1200 ;IN WORDS
 
 ;This header is hacked, as this image doesn't actually go through the PE loader, it is loaded with the kernel and then added
 ;to the executable chain
