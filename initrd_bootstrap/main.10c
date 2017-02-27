@@ -6,7 +6,7 @@ header_next:
 	DAT	0
 	
 header_name:
-	DAT 0x6574, 0x6D72, 0x6e69, 0x6c61, 0, 0, 0, 0, 0, 0 ; cstring of 'testprogram'
+	DAT 0x6574, 0x6D72, 0x6e69, 0x6c61, 0, 0, 0, 0, 0, 0 ; cstring of 'terminal'
 	
 header_rva_ep:
 	DAT main
@@ -42,6 +42,8 @@ import_peLoader_root:
 	dat 46
 import_string_singlebyteToWideChar:
 	dat 42
+import_peLoader_loadImage:
+	dat 27
 	DAT 0xFFFF
 	DAT 0x6873, 0x6c65, 0x006c, 0, 0, 0, 0, 0, 0, 0 ; cstring of 'shell'
 import_shell_createShell:
@@ -76,7 +78,7 @@ shell_prompt:
 	dat	">", 0
 	
 introMessage:
-	dat "TERMINAL V 1.0", 0
+	dat "StnCtl Command Terminal V 1.0", 0
 	
 command_table:
 	
@@ -92,6 +94,9 @@ command_table:
 	dat cmd_ps
 	dat "ps", 0
 	
+	dat cmd_exec
+	dat "exec", 0
+	
 	dat 0
 	
 currentDirectoryDescriptorRoot:
@@ -102,17 +107,13 @@ fileName:
 	dat 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 	
 main:
-	SET PUSH, B
-	SET B, SP
-	SUB SP, 1
-	
-	SET [B-1], A
+	_loadBase(A)
 	
 	SET PUSH, SHELLINSTANCE_SIZE
 	JSR [A + import_memory_allocateMemory]
 	ADD SP, 1
 
-	SET Y, [B-1]
+	_loadBase(y)
 	_push y
 	SET PUSH, input_handler
 	ADD [SP], Y
@@ -133,9 +134,8 @@ main:
 	
 	relCall promptCommand
 	
-	ADD SP, 1 ; Delete temp data saved for session
-	SET B, POP ; Recover B register
-	SET PC, POP ; return to caller
+	ret
+	
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 promptCommand:
@@ -190,7 +190,7 @@ input_handler:
 	add sp, 2
 	
 	relCall promptCommand
-	
+
 	ret
 	
 ;Arg1 number of strings in string list.
@@ -255,11 +255,11 @@ unknown_command:
 	ret
 
 cmd_help_response:
-	dat "Help yourself to a cup of shut the fuck up.", 0
+	dat "CMD  Summary                    ", "ls   List files in current dir. ", "cd   change to specified dir.   ", "exec Start specified executable.", "ps   List active processes.     ", 0
 cmd_help:
 	_loadBase(x)
 	_push cmd_help_response
-	relCall writeResponseLine
+	relCall writeResponse
 	add sp, 1
 	ret
 
@@ -326,7 +326,7 @@ cmd_cd:
 	_sfArg(x, 1)
 	add x, 3 ;We know the command is two characters, plus one for null terminator = next string in string list
 	
-	ife [x], 0x5C ;Backslash
+	ife [x], 0x2F ;Backslash
 		jmpD cmd_cd_goBack
 	
 	relPushLabel currentDirectoryDescriptorRoot
@@ -404,3 +404,68 @@ cmd_ps:
 	_pop z
 	_sfEnd
 	ret
+	
+cmd_exec_file:
+	dat 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	
+cmd_exec_noFile_message:
+	dat "File not found", 0
+	
+cmd_exec_error_message:
+	dat "Unable to exec. Invalid format.", 0
+	
+cmd_exec_missingArgument_message:
+	dat "Must specify executable file.", 0
+	
+cmd_exec:
+	_sfBegin(0)
+	
+	_sfArg(a, 0)
+	ife a, 0
+		jmpD cmd_exec_missingArgument
+	
+	_sfArg(x, 1)
+	add x, 5 ;We know the command length, plus is next string in string list.
+
+	relPushLabel cmd_exec_file
+	_push x
+	relPushLabel currentDirectoryDescriptorRoot
+	callRelPtr import_vfs_fOpenFileW
+	add sp, 3
+		
+	ife a, 0								 		;Throw an error, bootstrap was not found
+		jmpD cmd_exec_noFile
+		
+	relPushLabel currentDirectoryDescriptorRoot
+	relPushLabel cmd_exec_file
+	callRelPtr import_peLoader_loadImage
+	add sp, 2
+	
+	ife a, 0
+		jmpD cmd_exec_error
+
+	cmd_exec_end:
+	_sfEnd
+	ret
+	
+	cmd_exec_missingArgument:
+			
+	_push cmd_exec_missingArgument_message
+	relCall writeResponseLine
+	add sp, 1
+	jmpU cmd_exec_end
+	
+	cmd_exec_noFile:
+	
+	_push cmd_exec_noFile_message
+	relCall writeResponseLine
+	add sp, 1
+	jmpU cmd_exec_end
+	
+	cmd_exec_error:
+	
+	_push cmd_exec_error_message
+	relCall writeResponseLine
+	add sp, 1
+	jmpU cmd_exec_end
+	
