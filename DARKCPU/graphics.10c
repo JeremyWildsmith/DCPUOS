@@ -9,44 +9,46 @@
 ;Arg2 is pointer to nullterminated string to be printed to screen
 ;Arg3 is cursor location
 graphics_writeString:
-	SET C, [SP + 2]	;Store pointer to null terminated string in C
+	_sfBegin(0)
+	_sfArg(c, 1)
 	
-	SET Y, [SP+1]	; Store pointer to VRAM (DEST) in Y
-	ADD Y, [SP+3]	; Add the cursor offset
+	_sfArg(y, 0)	; Pointer to where in vram to write (added cursor offset) store in y
+	_sfArgAdd(y, 2)
 	
 	graphics_write_copyLoop:
-		IFE [C], 0
-			SET PC, graphics_write_end
+		ife [c], 0
+			jmp graphics_write_end
 			
-			SET A, Y		; Calculate cursor position, Store in A
-			SUB A, [SP+1]
+			set a, y		; Calculate cursor position (relative to vram), Store in A
+			_sfArgSub(a, 0) 
 			
-			IFL A, GRAPHICS_VRAM_SIZE	; If cursor exceeds max memory
-				SET PC, graphics_write_copyLoop_writeCharacter
+			ifl a, GRAPHICS_VRAM_SIZE	; If cursor exceeds max memory
+				jmp graphics_write_copyLoop_writeCharacter
 				
-			SET PUSH, C
-			SET PUSH, Y
+			_push c
+			_push y
 			
-			SET PUSH, [SP+3]			;Shift screen vertically; value is 4 to get past registeres reserved on stack
-			JSR graphics_verticalShift
-			ADD SP, 1
+			_sfArg(push, 0)	
+			call graphics_verticalShift
+			add sp, 1
 			
-			SET Y, POP
-			SET C, POP
+			_pop y
+			_pop c
 			
-			SUB Y, GRAPHICS_SCREENX
+			sub y, GRAPHICS_SCREENX
 		graphics_write_copyLoop_writeCharacter:
-			SET [Y], [C]
-			BOR [Y], 0xE000
-			ADD Y, 1
-			ADD C, 1
+			set [y], [c]
+			bor [y], 0xE000
+			add y, 1
+			add c, 1
 			
-		SET PC, graphics_write_copyLoop
+		jmp graphics_write_copyLoop
 		
 graphics_write_end:
-	SET A, Y
-	SUB A, [SP+1]
-	SET PC, POP
+	set a, y
+	_sfArgSub(a, 0)
+	_sfEnd
+	ret
 
 ;cdecl, returns nothing
 ;ARG1 is pointer to video memory
