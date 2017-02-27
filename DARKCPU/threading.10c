@@ -183,19 +183,12 @@
 ;;
 #define THREADING_STATE_NORMAL 0
 
-;;
-;\type WORD
-;\details Defines the state of the threading system. This value is used to symbolize the locked state. Refer to \ref LockingTheThreadManager
-;;
-#define THREADING_STATE_LOCKED 1
-
 ;;;
 ;Ends a threads current cycle. Automatically frees threading system if it is locked.
 ;;;
 #macro _threading_endCycle() {
-		JSR threading_free
 		INT INTERRUPT_MESSAGE_THREADENDCYCLE
-	}
+}
 
 ;;
 ;\type THREADCONTEXT*
@@ -352,12 +345,10 @@ threading_removeThread:
 		
 	threading_removeThread_endOfList: 	;NOTE ABOVE TO A REGISTER
 		
+		call threading_free ;if jumped to due to error, 'A' register should be zero
 		;If active thread is now invalid (due to our remove operation)
 		;pass control to to next thread
-		ife [threading_activeThread], THREADING_INVALIDENTRY
-			_threading_endCycle()
-			
-		jmp threading_free ;if jumped to due to error, 'A' register should be zero
+		_sfEnd
 		ret
 	
 	threading_removeThread_removeRoot:
@@ -370,7 +361,7 @@ threading_removeThread:
 ;\call cdecl
 ;;
 threading_lock:
-		set [threading_state], THREADING_STATE_LOCKED
+		add [threading_state], 1
 		ret
 
 ;;
@@ -379,7 +370,7 @@ threading_lock:
 ;\call cdecl
 ;;
 threading_free:
-		set [threading_state], THREADING_STATE_NORMAL
+		sub [threading_state], 1
 		ret	
 
 ;;
@@ -392,13 +383,14 @@ threading_endOfThread:
 		sub a, THREADCONTEXT_SIZE 	;because it is equal to last data + 1, it is effectivley base + the size of the structure
 		_push A
 		call threading_removeThread
+		int INTERRUPT_MESSAGE_THREADENDCYCLE
 ;;
 ;\details Invoked by the \ref ClockDriver on equal intervals. When invoked, this routine is tasked with the procedure of determining if control should be passed to the next thread, and passing control if it should
 ;\return(VOID) No return data.
 ;\call cdecl
 ;;
 threading_interrupt:
-		ife [threading_state], THREADING_STATE_LOCKED
+		ifn [threading_state], THREADING_STATE_NORMAL
 			rfi A
 		
 		ife [threading_activeThread], THREADING_INVALIDENTRY
@@ -413,7 +405,7 @@ threading_interrupt:
 		
 		set [a + THREADCONTEXT_OFFSET_B], B
 		set [a + THREADCONTEXT_OFFSET_C], C
-		set [a + THREADCONTEXT_OFFSET_X], Z
+		set [a + THREADCONTEXT_OFFSET_X], X
 		set [a + THREADCONTEXT_OFFSET_Y], Y
 		set [a + THREADCONTEXT_OFFSET_Z], Z
 		set [a + THREADCONTEXT_OFFSET_I], I
@@ -444,6 +436,7 @@ threading_interrupt:
 		set y, [a+ THREADCONTEXT_OFFSET_Y]
 		set x, [a+ THREADCONTEXT_OFFSET_X]
 		set b, [a+ THREADCONTEXT_OFFSET_B]
+		set c, [a+ THREADCONTEXT_OFFSET_C]
 		
 		set ex, [a+ THREADCONTEXT_OFFSET_EX]
 		set sp, [a+ THREADCONTEXT_OFFSET_SP]
@@ -451,14 +444,15 @@ threading_interrupt:
 		add a, THREADCONTEXT_OFFSET_PC
 		
 		_push [a] ; Push the thread's pc to the stack
-		
-		set a,  [a+ THREADCONTEXT_OFFSET_A]	;Set a register appropriately
-
-		iaq 0 ; re-enable interrupts before returning to new thread.
-		
-		jmp pop ; pop it off an jump to its pc.
+		_push [a+ THREADCONTEXT_OFFSET_A]	;Set a register appropriately
+		rfi a
 		
 	threading_interrupt_idleThread:
-		call threading_free
-		iaq 0 ; re-enable interrupts
-		sub pc, 1
+		_push threading_interrupt_idleThreadLoop
+		_push 0
+		rfi a
+	threading_interrupt_idleThreadLoop:
+		jmp threading_interrupt_idleThreadLoop
+		
+	threading_returnToThread:
+		
