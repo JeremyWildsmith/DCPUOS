@@ -89,7 +89,6 @@ interrupt_disable:
 ;\return(VOID)
 ;;
 interrupt_handler:
-
 	ife a, INTERRUPT_MESSAGE_DEBUGBREAK
 		jmp interrupt_handler_breakpoint
 	
@@ -99,10 +98,10 @@ interrupt_handler:
 	ife a, INTERRUPT_MESSAGE_KERNELERROR
 		jmp interrupt_handler_kernelError
 	
-	;If 'A' does not fall within the mask of device interrupts
+	;If a does not fall within the device handlers interrupts.
 	ifl a, INTERRUPT_DEVICEMASK
-		rfi	A	;End interrupt handler
-		
+		rfi a
+	
 	jmp device_interruptHandler
 	
 ;;
@@ -116,7 +115,7 @@ interrupt_handler_breakpoint:
 ;Naked function...
 ;	Handles all interrupts invoked by the clock
 interrupt_handler_clock:
-	JSR clock_interrupt
+	jsr clock_interrupt
 	
 	;Important you jump and not call to this routine.
 	SET PC, threading_interrupt ; !Important! call last, does not return control to caller
