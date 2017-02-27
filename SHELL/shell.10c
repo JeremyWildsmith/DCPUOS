@@ -99,29 +99,26 @@ shell_create:
 ;ARG1 is base of shell structure
 ;ARG2 is ptr to string to write
 shell_writeString:
-	SET A, PC
-shell_writeString_nextInstruction:
-	SUB A, shell_writeString_nextInstruction
-	SET PUSH, A
-
-	SET PUSH, [SP+2] ; Get address of VRAM
-	ADD [SP], SHELLINSTANCE_OFFSET_STATE
-	JSR [A + import_userInterfaceState_getVram]
-	ADD SP, 1
+	_sfBegin(0)
+	_loadBase(a)
 	
-	SET Y, [SP + 2]
-	SET PUSH, [Y + SHELLINSTANCE_OFFSET_CUR_WRITEORIGIN]
-	SET PUSH, [SP + 4]
-	SET PUSH, A
-	SET Y, [SP+3]
-	JSR [Y + import_graphics_writeString]
-	ADD SP, 3
+	_sfArg(push, 0) ; Get address of VRAM
+	add [SP], SHELLINSTANCE_OFFSET_STATE
+	callRelPtr import_userInterfaceState_getVram
+	add sp, 1
 	
-	SET Y, [SP+2]
-	SET [Y + SHELLINSTANCE_OFFSET_CUR_WRITEORIGIN], A
+	_sfArg(y, 0)
+	_push [y + SHELLINSTANCE_OFFSET_CUR_WRITEORIGIN]
+	_sfArg(push, 1)
+	_push a
+	callRelPtr import_graphics_writeString
+	add sp, 3
 	
-	ADD SP, 1
-	SET PC, POP
+	_sfArg(y, 0)
+	set [y + SHELLINSTANCE_OFFSET_CUR_WRITEORIGIN], a
+	
+	_sfEnd
+	ret
 
 ;cdecl
 ;ARG1 is base of shell structure
