@@ -116,7 +116,7 @@ kernel_export_table:
 
 ;============================================
 startupMessage:
-	dat "                                ","                                ","            DARK CPU            ","              1.0               ","                                ","                                ","       -=Herobine's Army=-      ","  www.herobrinesarmy.enjin.com  ", "                                ", "                                ", 0
+	dat "                                ", "    __ _           ___ _   _    ", "   / _\ |_ _ __   / __\ |_| |   ", "   \ \| __| '_ \ / /  | __| |   ", "   _\ \ |_| | | / /___| |_| |   ", "   \__/\__|_| |_\____/ \__|_|   ", "   -=Station Control System=-   ", "                                ", "   Press  ~  to toggle Windows  ",  "                                ", 0
 
 kernelState:
 	dat 0
@@ -135,7 +135,6 @@ kernel_sBootstrapName:
 ;\return(VOID) No return value.
 ;;
 kernel_main:
-		
 		_push 0x1234
 		call memory_init					;Initilize the memory manager
 
@@ -181,14 +180,12 @@ kernel_main:
 		;Initilize keyboard, clock and interrupt handler modules
 		call keyboard_init
 		
-		_push 5					;Fire off interrupt timer every 15ths of a second.
+		_push 10				;Fire off interrupt timer every 15ths of a second.
 		call clock_init
 		add sp, 1
 		
 		call interrupt_enable
 		_threading_endCycle()	;Pass control on to the next thread (or idle if there are none.
-looop:
-		set PC, looop
 		
 kernelInputHandler:
 		ret
@@ -227,16 +224,10 @@ kernel_initThreadEp:
 		call peLoader_loadImage
 		add sp, 2
 		
-
-		;unmount ramdisk
-		;_sfLocalPtr(push, VFS_FILE_OFFSET_LASTMEMBER)   ; Push pointer to parent directory file descriptor.
-		;call vfs_endMount
-		;add sp, 1
-
-		;Cleanup ramdisk
-		;call ramddssi_deinit
-
-		_sfEnd()
+pollKeyboard:
+		call keyboard_poll
+		_threading_endCycle()
+		jmp pollKeyboard
 		ret
 
 #segment KERNEL_END 1100
