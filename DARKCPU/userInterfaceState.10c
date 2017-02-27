@@ -186,7 +186,5 @@ userInterfaceState_issueInput_passInput:
 	JSR [C + USERINTERFACESTATE_OFFSET_INPUTHANDLER]
 	ADD SP, 1
 	
-	SET PC, POP
-	
 userInterfaceState_issueInput_end:
 	SET PC, POP
