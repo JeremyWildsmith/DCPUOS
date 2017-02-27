@@ -34,5 +34,6 @@
       <property name="providerFileTypeName">Binary Resource file</property>
       <property name="Identifier">ramddssi_initrd</property>
     </file>
+    <file path="initrd_end.10c" />
   </files>
 </project>
