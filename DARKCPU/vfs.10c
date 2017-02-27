@@ -191,7 +191,7 @@
 vfs_getMountFilesystem:
 		_sfBegin(0)
 		
-		_sfArg(a, vfs_mounts)
+		_sfArg(a, 0)
 		mul a, VFS_MOUNTPOINT_SIZE
 		add a, vfs_mounts
 		
@@ -210,7 +210,7 @@ vfs_getMountFilesystem:
 vfs_getMountMediaStorage:
 		_sfBegin(0)
 		
-		_sfArg(a, vfs_mounts)
+		_sfArg(a, 0)
 		mul a, VFS_MOUNTPOINT_SIZE
 		add a, vfs_mounts
 		
