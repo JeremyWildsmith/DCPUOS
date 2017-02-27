@@ -205,6 +205,8 @@ peLoader_root:
 ;\call cdecl
 ;;
 peLoader_loadImage:
+		call threading_lock
+
 		_sfBegin(1)
 		_sfArg(c, 0)
 		
@@ -240,6 +242,7 @@ peLoader_loadImage:
 		set a, c					;return base address of executable image
 		
 	peLoader_loadImage_end:
+		call threading_free
 		_sfEnd()
 		ret
 	
