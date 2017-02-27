@@ -294,15 +294,14 @@ device_defaultInterruptHandler:
 ;\return(VOID)
 ;;
 device_interruptHandler:
+	_push ex ; ex must be preserved, all device interrupt handles must restore before rfi
 	and a, 0x00FF
 	
 	ifg a, DEVICE_DEVICEENTRY_MAXENTRYINDEX
 		int INTERRUPT_MESSAGE_KERNELERROR
-	
+
 	mul a, DEVICE_DEVICEENTRY_SIZE
 	add A, device_deviceEntryTable
 	set a, [A + DEVICE_DEVICEENTRY_OFFSET_HANDLER]
 	
 	jmp a
-	
-	

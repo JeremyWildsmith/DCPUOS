@@ -44,25 +44,22 @@ keyboard_clearBuffer:
 	
 	SET PC, POP
 
-;cdecl returns last key pressed
-keyboard_getLastKey:
-	SET A, KEYBOARD_INTERRUPTCODE_GETLASTKEY ; Set clock to interrupt with message
-
-	HWI [keyboard_deviceIndex]
-
-	SET A, C
-	SET PC, POP
-
-;cdecl, broadcasts keypress to appropriate handlers
 keyboard_interrupt:
-	JSR keyboard_getLastKey
+	_pop ex
+	rfi a
 	
-	IFE A, 0
-		SET PC, keyboard_getLastKey_end
-		
-	SET PUSH, A
+keyboard_poll:
+	SET A, KEYBOARD_INTERRUPTCODE_GETLASTKEY ; Set clock to interrupt with message
+	HWI [keyboard_deviceIndex]
+	
+	ife c, 0
+		jmp keyboard_poll_end
+	
+	_push c
 	JSR userInterfaceState_issueInput
 	ADD SP, 1
 	
-keyboard_getLastKey_end:
-	RFI A
+	jmp keyboard_poll
+
+keyboard_poll_end:
+	ret

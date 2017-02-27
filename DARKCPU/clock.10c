@@ -110,5 +110,6 @@ clock_getTicks:
 ;\return(VOID)
 ;;
 clock_interrupt:
+		_pop ex
 		jmp threading_interrupt
 		rfi a
