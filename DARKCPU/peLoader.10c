@@ -176,7 +176,7 @@
 ;\type WORD
 ;\details Offset to the image's PEIMAGE structure pointing to the RVA_IMAGE_SIZE member. Refer to \ref PeImageFormat
 ;;
-#define PEIMAGE_OFFSET_IMAGE_SIZE 		16
+#define PEIMAGE_OFFSET_RVA_SIGHANLDER 		16
 
 ;;
 ;\type WORD

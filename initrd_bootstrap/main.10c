@@ -17,8 +17,8 @@ test_program_rva_export:
 	DAT header_export_table
 test_program_rva_offset:
 	DAT header_relocations
-test_program__imageSize:
-	DAT 0x100
+test_program_rva_sigHandler:
+	DAT 0
 	
 header_import_table:
 	dat 0x656b, 0x6e72, 0x6c65, 0, 0, 0, 0, 0, 0, 0 ; cstring of 'kernel'
@@ -58,7 +58,6 @@ import_shell_newLine:
 	DAT 0xFFFF
 header_export_table:
 	DAT 0xFFFF
-	
 header_relocations:
 	DAT 0xFFFF
 

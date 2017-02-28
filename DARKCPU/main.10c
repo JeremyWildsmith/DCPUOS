@@ -26,7 +26,7 @@ kernel_signature:
 	dat PEIMAGE_SIGNATURE
 
 kernel_header_next:
-	dat	0xFFFF ;This is treated as a 'Next' entry and not FileFlags as soon as the kernel is loaded due to configuration of peLoader
+	dat rsfs_header ;This is treated as a 'Next' entry and not FileFlags as soon as the kernel is loaded due to configuration of peLoader
 
 kernel_name:
 	dat 0x656b, 0x6e72, 0x6c65, 0, 0, 0, 0, 0, 0, 0 ;cstring of 'kernel'
@@ -43,8 +43,8 @@ kernel_rva_export:
 kernel_rva_relocation:
 	dat 0
 	
-kernel_imageSize:
-	dat kernel_size
+kernel_rva_sigHandler:
+	dat 0
 	
 kernel_import_table:
 	dat 0xFFFF

@@ -35,5 +35,6 @@
       <property name="Identifier">ramddssi_initrd</property>
     </file>
     <file path="initrd_end.10c" />
+    <file path="signal.10c" />
   </files>
 </project>

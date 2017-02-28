@@ -35,7 +35,7 @@
 	DAT	0xFFFF
 	
 :rsfs_header_name
-	DAT "ddfsirsfs", 0
+	DAT 0x7372, 0x7366, 0, 0, 0, 0, 0, 0, 0, 0
 	
 :rsfs_header_rva_ep
 	DAT 0
@@ -49,7 +49,7 @@
 :rsfs_header_rva_relocations
 	DAT 0
 	
-:rsfs_header_imageSize
+:rsfs_rva_sigHandler
 	DAT 0
 	
 :rsfs_header_specHash
