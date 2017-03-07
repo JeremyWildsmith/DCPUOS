@@ -51,7 +51,10 @@
 	
 :rsfs_rva_sigHandler
 	DAT 0
-	
+
+:rsfs_size
+	dat rsfs_end - rsfs_header; This image should never be unloaded.
+
 :rsfs_header_specHash
 	DAT 0x6ef4
 	DAT 0x797e
@@ -300,3 +303,5 @@ rsfs_fEnum:
 	rsfs_fEnum_lastEntry:
 		set a, 0
 		jmp rsfs_fEnum_end
+		
+rsfs_end:

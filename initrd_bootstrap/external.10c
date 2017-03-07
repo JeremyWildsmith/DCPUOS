@@ -6,3 +6,5 @@
 #define PEIMAGE_OFFSET_NAME 2
 
 #define PEIMAGE_OFFSET_NEXT 1
+
+#define SIGNAL_KILL 9

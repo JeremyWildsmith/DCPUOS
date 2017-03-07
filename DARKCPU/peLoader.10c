@@ -176,13 +176,15 @@
 ;\type WORD
 ;\details Offset to the image's PEIMAGE structure pointing to the RVA_IMAGE_SIZE member. Refer to \ref PeImageFormat
 ;;
-#define PEIMAGE_OFFSET_RVA_SIGHANLDER 		16
+#define PEIMAGE_OFFSET_RVA_SIGHANDLER 		16
+
+#define PEIMAGE_OFFSET_SIZE 				17
 
 ;;
 ;\type WORD
 ;\details Offset to the image's PEIMAGE structure pointing to the MD5SpecHash member. Refer to \ref PeImageFormat
 ;;
-#define PEIMAGE_OFFSET_IMAGE_MD5SPECHASH 17
+#define PEIMAGE_OFFSET_IMAGE_MD5SPECHASH 18
 
 ;;
 ;\type WORD
@@ -221,6 +223,8 @@ peLoader_loadImage:
 		call memory_allocate
 		add sp, 1
 		
+		;Set arguments for call to initProcess
+		_sfLocal(push, 0)
 		_sfArg(push, 1) ;setup stack for a call to peLoader_initProcess
 		_push a 
 		
@@ -234,7 +238,7 @@ peLoader_loadImage:
 		
 		call peLoader_initImage
 		_pop c						;The base address of our memory allocated for our executable image
-		add sp, 1
+		add sp, 2
 		
 		ife a, 0
 			jmp peLoader_loadImage_failed
@@ -262,6 +266,7 @@ peLoader_loadImage:
 ;\details Initializes and executes an executable image in memory. This routine will take the address of the loaded executable image in memory provided via the arguments, initializes the image's Import Address Table, adds it to the task chain, corrects its export table (adds its base address to the export rvas described in the export table) and creates a thread at its entrypoint.
 ;\param(IMAGE*, pImage) A pointer to the raw executable image in memory to Initializes.
 ;\param(FILE*, pSourceDirectory) A pointer to a file descriptor of the directory where dependencies are looked for.
+;\param(SIZE, size) the size of the image.
 ;\call cdecl
 ;\return(STATUS) Returns a 0 on error, and anything else otherwise.
 ;;
@@ -271,9 +276,14 @@ peLoader_initImage:
 		_push i												;Preserve the state of the i register so we do not corrupt it.
 		
 		_sfArg(i, 0)										;Set I a pointer to the raw executale image
-	
+
 		ifn [i], PEIMAGE_SIGNATURE							;Check for the proper signature in the header, if it isn't there, cause error
 			jmp peLoader_create_error
+		
+		ifn [i + PEIMAGE_OFFSET_RVA_SIGHANDLER], 0
+			add [i + PEIMAGE_OFFSET_RVA_SIGHANDLER], i
+		
+		_sfArg([i + PEIMAGE_OFFSET_SIZE], 2)
 		
 		add i, [i + PEIMAGE_OFFSET_RVA_IMPORT_TABLE]		;Seek to the Images import table.
 		
@@ -493,4 +503,46 @@ peLoader_findExport:
 		
 		_sfEnd()
 		ret
+		
+;arg1 is base address of image to unload.
+;return 0 on error
+peLoader_unloadImage:
+		call threading_lock
+		_sfBegin(0)
+		_sfArg(a, 0)
+		
+		_push i												;Preserve the state of the i register so we do not corrupt it.
+			
+		set i, [peLoader_root]								;Set i to the root entry in the linked list
+		
+		peLoader_unload_loop:
+			ife i, PEIMAGE_INVALID_NEXT						;If current entry is invalid (i.e, if the current entry is the last entry)
+				jmp peLoader_unload_error				;and we haven't located the image, return error
+				
+			ife [i + PEIMAGE_OFFSET_NEXT], a				;If the address matches
+				jmp peLoader_unload_found			;exit the loop, and proceed to return the executable image's base address to the caller
+			
+			set i, [i + PEIMAGE_OFFSET_NEXT]
+			jmp peLoader_unload_loop
+			
+		peLoader_unload_found:
+		
+		set [i + PEIMAGE_OFFSET_NEXT], [a + PEIMAGE_OFFSET_NEXT]
+		
+		_push [a + PEIMAGE_OFFSET_SIZE]
+		_push a
+		call memory_free
+		add sp, 2
+		set a, 1											;Set a to i (i is equal to the base address of the next image.)
+
+	peLoader_unload_end:
+		call threading_free
+		_pop i												;restore the state of the i register
+		_sfEnd()
+		ret
+	
+	peLoader_unload_error:
+		set a, 0
+		
+		jmp peLoader_unload_end
 		

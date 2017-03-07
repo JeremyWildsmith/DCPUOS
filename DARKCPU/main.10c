@@ -38,18 +38,21 @@ kernel_rva_import:
 	dat 0
 	
 kernel_rva_export:
-	dat 19
+	dat kernel_export_table - kernel_image_header
 	
 kernel_rva_relocation:
 	dat 0
 	
 kernel_rva_sigHandler:
 	dat 0
-	
+
+kernel_header_size:
+	dat __IMGSIZE
+
 kernel_import_table:
 	dat 0xFFFF
 	dat 0xFFFF
-	
+
 kernel_export_table:
 	dat memory_reserve						; 0
 	dat memory_allocate
@@ -112,8 +115,14 @@ kernel_export_table:
 	dat vfs_fOpenFileW					;45
 	dat peLoader_root
 	
+	dat signal_dispatch					;47
+	dat peLoader_unloadImage
+	
+	dat string_indexOfString			;49
+	dat string_stoi						;50
+	
 	dat 0xFFFF
-
+	
 ;============================================
 startupMessage:
 	dat "                                ", "    __ _           ___ _   _    ", "   / _\ |_ _ __   / __\ |_| |   ", "   \ \| __| '_ \ / /  | __| |   ", "   _\ \ |_| | | / /___| |_| |   ", "   \__/\__|_| |_\____/ \__|_|   ", "   -=Station Control System=-   ", "                                ", "   Press  ~  to toggle Windows  ",  "                                ", 0
@@ -224,10 +233,27 @@ kernel_initThreadEp:
 		call peLoader_loadImage
 		add sp, 2
 		
-pollKeyboard:
+		call threading_lock
+		
+		_push 0
+		_sfLocalPtr(push, VFS_FILE_OFFSET_LASTMEMBER + VFS_FILE_SIZE) ; Push pointer to bootstrap file descriptor.
+		_push nic_image_header
+		call peLoader_initImage
+		add sp, 3
+		
+		_push 0
+		_sfLocalPtr(push, VFS_FILE_OFFSET_LASTMEMBER + VFS_FILE_SIZE) ; Push pointer to bootstrap file descriptor.
+		_push stnacs_image_header
+		call peLoader_initImage
+		add sp, 3
+		
+		call threading_free
+		
+kernel_serviceLoop:
 		call keyboard_poll
+		call signal_poll
 		_threading_endCycle()
-		jmp pollKeyboard
+		jmp kernel_serviceLoop
 		ret
 
 #segment KERNEL_END 1100

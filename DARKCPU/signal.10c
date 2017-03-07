@@ -1,0 +1,60 @@
+#define SIGNAL_KILL 9
+
+;Arg1 = base address to process to recieve signal
+;Arg2 = signal code
+;Returns non-zero if queued
+signal_dispatch:
+	_sfBegin(0)
+	_sfArg(a, 0)
+	
+	ife [signal_queue_currentOffset], 9
+		jmp signal_dispatch_queueFull
+		
+	add [signal_queue_currentOffset], 1
+	set x, [signal_queue_currentOffset]
+	
+	_sfArg([signal_queue_processes + x], 0)
+	_sfArg([signal_queue_codes + x], 1)
+	
+	signal_dispatch_end:
+	_sfEnd
+	ret
+	
+	signal_dispatch_queueFull:
+	set a, 0
+	jmp signal_dispatch_end
+	
+;All signal handlers are threading locked. This is because they may result in, for example, their address space being deallocated.
+;If they are locked, they have time to return before their address space is overwritten.
+signal_poll:
+	call threading_lock
+	signal_poll_start:
+	ife [signal_queue_currentOffset], 0xFFFF
+	jmp signal_poll_end
+	
+	set a, [signal_queue_currentOffset]
+	
+	set x, [a + signal_queue_processes]
+	set x, [x + PEIMAGE_OFFSET_RVA_SIGHANDLER]
+	_push [a + signal_queue_codes]
+	
+	ifn x, 0
+		call x
+	
+	add sp, 1
+	
+	sub [signal_queue_currentOffset], 1
+	jmp signal_poll_start
+	
+	signal_poll_end:
+	call threading_free
+	ret
+
+signal_queue_processes:
+	dat 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+
+signal_queue_codes:
+	dat 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	
+signal_queue_currentOffset:
+	dat 0xFFFF

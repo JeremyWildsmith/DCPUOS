@@ -121,6 +121,7 @@ mutex_lock:
 		ret
 		
 	mutex_lock_failedLock:
+		call threading_free
 		_threading_endCycle()
 		jmp mutex_lock_attemptLock
 	
@@ -149,6 +150,7 @@ mutex_wait:
 		ret
 		
 	mutex_waitForMutex_stateLock:
+		call threading_free
 		_threading_endCycle()
 		jmp mutex_waitForMutex_getState
 

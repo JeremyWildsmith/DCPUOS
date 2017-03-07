@@ -18,12 +18,16 @@ test_program_rva_export:
 test_program_rva_offset:
 	DAT header_relocations
 test_program_rva_sigHandler:
-	DAT 0
+	DAT signal_handler
+test_program_size:
+	DAT 0 ; Specified by pe loader
 	
 header_import_table:
 	dat 0x656b, 0x6e72, 0x6c65, 0, 0, 0, 0, 0, 0, 0 ; cstring of 'kernel'
 import_memory_allocateMemory:
 	DAT 1
+import_memory_freeMemory:
+	DAT 2
 import_string_compare:
 	dat 41
 import_string_length:
@@ -44,8 +48,12 @@ import_string_singlebyteToWideChar:
 	dat 42
 import_peLoader_loadImage:
 	dat 27
+import_peLoader_unloadImage:
+	dat 48
+import_signal_dispatch:
+	dat 47
 	DAT 0xFFFF
-	DAT 0x6873, 0x6c65, 0x006c, 0, 0, 0, 0, 0, 0, 0 ; cstring of 'shell'
+	dat 0x7874, 0x6974, 0x006f, 0, 0, 0, 0, 0, 0, 0 ;cstring of 'txtio'
 import_shell_createShell:
 	DAT 0
 import_shell_writeString:
@@ -54,6 +62,8 @@ import_shell_processInput:
 	DAT 2
 import_shell_newLine:
 	dat 3
+import_shell_destroy:
+	dat 4
 	DAT 0xFFFF
 	DAT 0xFFFF
 header_export_table:
@@ -96,6 +106,12 @@ command_table:
 	dat cmd_exec
 	dat "exec", 0
 	
+	dat cmd_kill
+	dat "kill", 0
+	
+	dat cmd_exit
+	dat "exit", 0
+	
 	dat 0
 	
 currentDirectoryDescriptorRoot:
@@ -133,6 +149,25 @@ main:
 	
 	relCall promptCommand
 	
+	ret
+	
+signal_handler:
+	ifn [sp + 1], SIGNAL_KILL
+		jmp signal_handler_end
+
+	_loadBase(x)
+	_push SHELLINSTANCE_SIZE
+	_push [x + shell_instance]
+	callRelPtr import_shell_destroy
+	callRelPtr import_memory_freeMemory
+	add sp, 2
+	
+	_loadBase(x)
+	_push x
+	callRelPtr import_peLoader_unloadImage
+	add sp, 1
+	
+	signal_handler_end:
 	ret
 	
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -254,7 +289,7 @@ unknown_command:
 	ret
 
 cmd_help_response:
-	dat "CMD  Summary                    ", "ls   List files in current dir. ", "cd   change to specified dir.   ", "exec Start specified executable.", "ps   List active processes.     ", 0
+	dat "CMD  Summary                    ", "ls   List files in current dir. ", "cd   change to specified dir.   ",  "exec Start specified executable.", "ps   List active processes.     ", "kill Terminates a process.      ", "exit Exits this program.        ", 0
 cmd_help:
 	_loadBase(x)
 	_push cmd_help_response
@@ -468,3 +503,97 @@ cmd_exec:
 	add sp, 1
 	jmpU cmd_exec_end
 	
+
+cmd_kill_missingArgument_message:
+	dat "Must specify process.", 0
+	
+cmd_kill_noProcess_message:
+	dat "Process does not exist.", 0
+	
+cmd_kill_killed_message:
+	dat "Sent kill signal.", 0
+	
+cmd_kill_name_buffer:
+	dat 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	
+cmd_kill:
+	_sfBegin(0)
+	_push z
+	
+	_sfArg(a, 0)
+	ife a, 0
+		jmpD cmd_kill_missingArgument
+
+	relLoadLabel(z, import_peLoader_root)
+	
+	set z, [z]
+	
+	cmd_kill_nextProcess:
+	
+	ife [z], 0xFFFF
+		jmpD cmd_kill_noProcess
+		
+	set z, [z]
+	
+	_push 10
+	_push z
+	add [sp], PEIMAGE_OFFSET_NAME
+	relPushLabel cmd_kill_name_buffer
+	callRelPtr import_string_singlebyteToWideChar
+	add sp, 3
+	
+	_sfArg(push, 1)
+	add [sp], 5 ;Offset 5 = next string list.
+	relPushLabel cmd_kill_name_buffer
+	callRelPtr import_string_compare
+	add sp, 2
+	
+	ife a, 0
+		jmpD cmd_kill_killProcess
+		
+	add z, PEIMAGE_OFFSET_NEXT
+	
+	jmpU cmd_kill_nextProcess
+	
+	
+	cmd_kill_end:
+	_pop z
+	_sfEnd
+	ret
+	
+	cmd_kill_killProcess:
+	
+	_push SIGNAL_KILL
+	_push z
+	callRelPtr import_signal_dispatch
+	add sp, 2
+	
+	_push cmd_kill_killed_message
+	relCall writeResponseLine
+	add sp, 1
+	jmpU cmd_kill_end
+	
+
+	cmd_kill_noProcess:
+	
+	_push cmd_kill_noProcess_message
+	relCall writeResponseLine
+	add sp, 1
+	jmpU cmd_kill_end
+	
+	cmd_kill_missingArgument:
+			
+	_push cmd_kill_missingArgument_message
+	relCall writeResponseLine
+	add sp, 1
+	jmpU cmd_kill_end
+	
+cmd_exit:
+	_loadBase(x)
+	_push SIGNAL_KILL
+	_push x
+	callRelPtr import_signal_dispatch
+	add sp, 2
+	ret
+	
+image_end:

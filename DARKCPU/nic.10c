@@ -1,0 +1,85 @@
+
+;REMOVE THE -stnacs_image_header when you put this in a seperate executable...
+
+#define DEVICE_DEVICEENTRY_INVALIDENTRY				0xFFFF
+#define NIC_COMMAND_WRITE							1
+
+nic_image_header:
+nic_header_signature:
+	DAT 0x10C
+
+nic_header_next:
+	DAT	0
+	
+nic_header_name:
+	DAT 0x696E, 0x0063, 0, 0, 0, 0, 0, 0, 0, 0 ; cstring of 'nic'
+	
+nic_header_rva_ep:
+	DAT nic_main - nic_image_header
+	
+nic_header_rva_import:
+	DAT nic_header_import_table - nic_image_header
+nic_header_rva_export:
+	DAT nic_header_export_table - nic_image_header
+nic_header_rva_offset:
+	DAT nic_header_relocations - nic_image_header
+nic_header_rva_sigHandler:
+	DAT nic_signal_handler - nic_image_header
+nic_header_size:
+	DAT 0 ; Specified by pe loader
+nic_header_import_table:
+	dat 0x656b, 0x6e72, 0x6c65, 0, 0, 0, 0, 0, 0, 0 ; cstring of 'kernel'
+import_device_allocateDevice:
+	DAT 21
+import_string_compare:
+	DAT 0xFFFF
+	DAT 0xFFFF
+nic_header_export_table:
+	dat nic_send - nic_image_header
+	DAT 0xFFFF
+nic_header_relocations:
+	DAT 0xFFFF
+
+nic_device:
+	dat 0
+
+nic_main:
+	_push 0
+	_push 0xAAAA
+	_push 0x1111
+	CallRelPtr import_device_allocateDevice
+	add sp, 3
+	set [nic_device], a
+	
+	ret
+	
+nic_signal_handler:
+	ifn [sp + 1], SIGNAL_KILL
+		jmp signal_handler_end
+
+	_loadBase(x)
+	_push x
+	callRelPtr import_peLoader_unloadImage
+	add sp, 1
+	
+	nic_signal_handler_end:
+	ret
+
+;Arg1 address of packet data
+;Return 0 on fail
+nic_send:
+	_sfBegin(0)
+	xor a, a
+	
+	ife [nic_device], DEVICE_DEVICEENTRY_INVALIDENTRY
+		jmpD nic_send_end
+	
+	set a, NIC_COMMAND_WRITE
+	_sfArg(x, 0)
+	hwi [nic_device]
+	set a, 1
+	
+	nic_send_end:
+	_sfEnd
+	ret
+	

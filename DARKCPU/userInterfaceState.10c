@@ -80,36 +80,35 @@ userInterfaceState_createState_rootEntry:
 ;ARG1 is pointer to userInterfaceState structure
 userInterfaceState_destroyState:
 	IFE [SP+1], [userInterfaceState_activeState] ;Clear active state
+		jsr userInterfaceState_toggleState
+	
+	IFE [SP+1], [userInterfaceState_activeState] ;Clear active state
 		JSR userInterfaceState_clearActiveState
 
 	SET A, [SP+1]
 
-	SET Y, [userInterfaceState_rootState]
-	IFN Y, [SP+1]
+	SET Y, userInterfaceState_rootState
+	IFN [Y], [SP+1]
 		SET PC, userInterfaceState_destroyState_seekLastLoop
 	
-	SET Y, userInterfaceState_rootState
 	SET PC, userInterfaceState_destroyState_end
 		
 	userInterfaceState_destroyState_seekLastLoop:
-		ADD Y, USERINTERFACESTATE_OFFSET_NEXT
 		IFE [Y],  [SP+1]
-			SET PC, userInterfaceState_destroyState_end
-			
+			SET PC, userInterfaceState_destroyState_found
+		
+		ife [y], USERINTERFACESTATE_INVALIDSTATE
+			jmp userInterfaceState_destroyState_end
+		
 		SET Y, [Y]
-		SET PC, userInterfaceState_createState_seekLastLoop
+		ADD Y, USERINTERFACESTATE_OFFSET_NEXT
+		SET PC, userInterfaceState_destroyState_seekLastLoop
 
-userInterfaceState_destroyState_end:
+userInterfaceState_destroyState_found:
 	SET [Y], [A + USERINTERFACESTATE_OFFSET_NEXT]
-			
-	SET PUSH, GRAPHICS_VRAM_SIZE
-	SET PUSH, [SP+1]
-	JSR memory_free
-	ADD SP, 2
 	
+userInterfaceState_destroyState_end:
 	SET PC, POP
-
-userInterfaceState_destroyState_rootEntry:
 
 ;cdecl
 ;Toggles through to news state

@@ -48,7 +48,11 @@ keyboard_interrupt:
 	_pop ex
 	rfi a
 	
+; Keyboard handlers must be thread safe. If you call into a processes and on that
+; key event it dispatches a kill signal to itself, it must be guranteed to return before another thread works with that free address space.
 keyboard_poll:
+	call threading_lock
+	keyboard_poll_start:
 	SET A, KEYBOARD_INTERRUPTCODE_GETLASTKEY ; Set clock to interrupt with message
 	HWI [keyboard_deviceIndex]
 	
@@ -59,7 +63,8 @@ keyboard_poll:
 	JSR userInterfaceState_issueInput
 	ADD SP, 1
 	
-	jmp keyboard_poll
+	jmp keyboard_poll_start
 
 keyboard_poll_end:
+	call threading_free
 	ret

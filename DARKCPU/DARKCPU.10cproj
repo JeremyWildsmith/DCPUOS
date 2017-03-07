@@ -36,5 +36,7 @@
     </file>
     <file path="initrd_end.10c" />
     <file path="signal.10c" />
+    <file path="stnacs.10c" />
+    <file path="nic.10c" />
   </files>
 </project>

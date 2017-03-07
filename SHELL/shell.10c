@@ -15,7 +15,7 @@ header_next:
 	DAT	0
 	
 header_name:
-	DAT 0x6873, 0x6c65, 0x006c, 0, 0, 0, 0, 0, 0, 0 ; cstring of 'shell'
+	dat 0x7874, 0x6974, 0x006f, 0, 0, 0, 0, 0, 0, 0 ;cstring of 'txtio'
 	
 header_rva_ep:
 	DAT 0
@@ -28,6 +28,8 @@ test_program_rva_offset:
 	DAT header_relocations
 test_program_rva_sigHandler:
 	DAT 0
+test_program_size:
+	DAT 0 ; Specified by pe loader
 header_import_table:
 	dat 0x656b, 0x6e72, 0x6c65, 0, 0, 0, 0, 0, 0, 0 ;cstring of 'kernel'
 import_userInterfaceState_createState:
@@ -48,6 +50,7 @@ header_export_table:
 	DAT shell_writeString
 	DAT shell_processInput
 	DAT shell_newLine
+	dat shell_destroy
 	DAT 0xFFFF
 	
 header_relocations:
@@ -93,6 +96,20 @@ shell_create:
 	_pop z
 	_sfEnd
 	SET PC, POP
+
+
+;ARG3 base address of caller module.
+shell_destroy:
+	_sfBegin(0)
+	_sfArg(c, 0)
+	
+	add c, SHELLINSTANCE_OFFSET_STATE
+	_push c
+	callRelPtr import_userInterfaceState_destroyState
+	add sp, 1
+	
+	_sfEnd
+	ret
 
 ;cdecl 
 ;ARG1 is base of shell structure

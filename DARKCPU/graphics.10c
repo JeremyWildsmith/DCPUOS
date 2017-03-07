@@ -38,7 +38,8 @@ graphics_writeString:
 			sub y, GRAPHICS_SCREENX
 		graphics_write_copyLoop_writeCharacter:
 			set [y], [c]
-			bor [y], 0xE000
+			ifl [y], 0x0100
+				bor [y], 0xE000
 			add y, 1
 			add c, 1
 			

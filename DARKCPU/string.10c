@@ -27,6 +27,57 @@ string_compare:
 	string_compare_equal:
 		XOR A, A
 		SET PC, POP
+		
+;Gets the address of a string in specified null delimited string list
+;Arg1 the base address of the string list
+;Arg2 the index of the string to find in the string list.
+;Arg3 Delmiter character
+string_indexOfString:
+	_sfBegin(0)
+	
+	_sfArg(a, 0)
+	_sfArg(x, 1)
+	_sfArg(c, 2)
+	
+	string_indexOfString_next:
+	
+	ife x, 0
+		jmp string_indexOfString_end
+	
+	ife [a], c
+		sub x, 1
+	
+	add a, 1
+	
+	jmp string_indexOfString_next
+	
+	string_indexOfString_end:
+	
+	_sfEnd
+	ret
+
+;Arg1 Pointer to string to get integer value
+;Returns integer value.
+string_stoi:
+	_sfBegin(0)
+	_sfArg(y, 0)
+	set a, 0
+	string_stoi_next:
+		ife [y], 0
+			jmpD string_stoi_end
+		
+		mul a, 10
+		
+		set c, [y]
+		sub c, 0x30 ; The ascii key for 0
+		
+		add a, c
+		add y, 1
+	jmp string_stoi_next
+	
+	string_stoi_end:
+	_sfEnd
+	ret
 
 
 ;cdecl converts wide-character string
