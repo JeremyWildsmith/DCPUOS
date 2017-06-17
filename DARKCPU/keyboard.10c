@@ -25,14 +25,6 @@ keyboard_init:
 		
 	SET [keyboard_deviceIndex], A
 	
-	SET PUSH, A
-	JSR device_getDeviceInterruptMessage
-	ADD SP, 1
-	
-	SET B, A
-	SET A, KEYBOARD_INTERRUPTCODE_SETMESSAGE ; Set keyboard to interrupt with message
-	HWI [keyboard_deviceIndex]
-	
 	SET B, POP
 	
 	SET PC, POP
