@@ -7,3 +7,8 @@ The operating system includes a basic core operating subsystems with threading, 
 While it has no pratical application, it serves as means to be introduced to low-level software & kernel development.
 
 This application must be executed on an 0x10c virtual machine.
+
+LICENSE
+=======
+
+MIT License.
