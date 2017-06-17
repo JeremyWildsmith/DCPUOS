@@ -144,7 +144,6 @@ kernel_sBootstrapName:
 ;\return(VOID) No return value.
 ;;
 kernel_main:
-		_push 0x1234
 		call memory_init					;Initilize the memory manager
 
 		_push kernel_size					;Reserve the kernel memory region
