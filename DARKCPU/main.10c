@@ -125,7 +125,7 @@ kernel_export_table:
 	
 ;============================================
 startupMessage:
-	dat "                                ", "    __ _           ___ _   _    ", "   / _\ |_ _ __   / __\ |_| |   ", "   \ \| __| '_ \ / /  | __| |   ", "   _\ \ |_| | | / /___| |_| |   ", "   \__/\__|_| |_\____/ \__|_|   ", "   -=Station Control System=-   ", "                                ", "   Press  ~  to toggle Windows  ",  "                                ", 0
+	dat "                                ", "    __ _           ___ _   _    ", "   / _\ |_ _ __   / __\ |_| |   ", "   \ \| __| '_ \ / /  | __| |   ", "   _\ \ |_| | | / /___| |_| |   ", "   \__/\__|_| |_\____/ \__|_|   ", "   -=Station Control System=-   ", "                                ", "   Press ESC to toggle views  ",  "                                ", 0
 
 kernelState:
 	dat 0
