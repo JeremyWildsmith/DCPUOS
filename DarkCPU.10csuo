@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<solution name="DarkCPU" path="C:\Users\Jeremy\Desktop\DCPUOS-master\DarkCPU.10csln" currentFile="DARKCPU\interrupt.10c">
+<solution name="DarkCPU" path="C:\Users\Jeremy\Desktop\DCPUOS-master\DarkCPU.10csln" currentFile="DARKCPU\main.10c">
   <openFiles>
     <file path="initrd_bootstrap\main.10c" />
     <file path="DARKCPU\vfs.10c" />
@@ -17,5 +17,8 @@
     <file path="DARKCPU\memory.10c" />
     <file path="DARKCPU\mutex.10c" />
     <file path="DARKCPU\interrupt.10c" />
+    <file path="DARKCPU\threading.10c" />
+    <file path="DARKCPU\device.10c" />
+    <file path="DARKCPU\clock.10c" />
   </openFiles>
 </solution>
