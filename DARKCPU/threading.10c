@@ -338,16 +338,19 @@ threading_removeThread:
 		set [y + THREADCONTEXT_OFFSET_NEXT], [c + THREADCONTEXT_OFFSET_NEXT]
 		
 	threading_removeThread_removeEntry:
+		call threading_free ;Important that threading_lock to threading_free only scopes where required, otherwise deadlocks can occur when a locked mutex is encountered.
 		_push THREADCONTEXT_SIZE
 		_push c
 		call memory_free
 		add sp, 2
+		jmp threading_removeThread_end
 		
 	threading_removeThread_endOfList: 	;NOTE ABOVE TO A REGISTER
 		
 		call threading_free ;if jumped to due to error, 'A' register should be zero
 		;If active thread is now invalid (due to our remove operation)
 		;pass control to to next thread
+	threading_removeThread_end:
 		_sfEnd
 		ret
 	
