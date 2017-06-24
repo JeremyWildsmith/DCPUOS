@@ -286,6 +286,7 @@ device_freeDevice:
 ;\return(VOID)
 ;;
 device_defaultInterruptHandler:
+	_pop ex
 	rfi a
 
 ;;
