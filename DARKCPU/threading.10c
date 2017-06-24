@@ -457,5 +457,4 @@ threading_interrupt:
 	threading_interrupt_idleThreadLoop:
 		jmp threading_interrupt_idleThreadLoop
 		
-	threading_returnToThread:
 		
