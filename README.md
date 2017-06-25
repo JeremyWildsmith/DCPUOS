@@ -14,3 +14,9 @@ LICENSE
 =======
 
 MIT License.
+
+Documentation
+=============
+The primary documentation for the kerne can be found below:
+
+http://jeremywildsmith.github.io/DCPUOS/doc/calling_conventions.html
