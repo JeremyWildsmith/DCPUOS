@@ -168,7 +168,7 @@ userInterfaceState_clearActiveState:
 ;cdecl, arg1 input
 userInterfaceState_issueInput:
 
-	IFN [SP+1], KEYBOARD_KEY_ESC
+	IFN [SP+1], KEYBOARD_KEY_CTRL
 		SET PC, userInterfaceState_issueInput_passInput
 	
 	JSR userInterfaceState_toggleState

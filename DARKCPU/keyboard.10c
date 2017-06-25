@@ -6,7 +6,7 @@
 #define KEYBOARD_INTERRUPTCODE_SETMESSAGE 	3
 
 #define KEYBOARD_KEY_BACKTICK					0x60
-#define KEYBOARD_KEY_ESC						0x1B
+#define KEYBOARD_KEY_CTRL						0x91
 
 keyboard_deviceIndex:
 	DAT 0xFFFF
