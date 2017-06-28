@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<project version="1.7.5" type="code">
+  <name>nic</name>
+  <properties>
+    <property name="code.generateBinaryOutput">true</property>
+    <property name="code.binaryOutputFilename">nic.bin</property>
+    <property name="code.generateHexOutput">false</property>
+    <property name="code.hexOutputFilename">nic.hex</property>
+    <property name="code.setFirstFile">false</property>
+  </properties>
+  <references>
+    <project>common</project>
+  </references>
+  <files>
+    <file path="main.10c" />
+  </files>
+</project>

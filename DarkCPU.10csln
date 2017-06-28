@@ -15,5 +15,6 @@
     <project path="common\common.10cproj" />
     <project path="firmware\firmware.10cproj" />
     <project path="stnacs\stnacs.10cproj" />
+    <project path="nic\nic.10cproj" />
   </projects>
 </solution>

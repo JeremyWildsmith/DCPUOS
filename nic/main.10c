@@ -1,6 +1,3 @@
-
-;REMOVE THE -stnacs_image_header when you put this in a seperate executable...
-
 #define DEVICE_DEVICEENTRY_INVALIDENTRY				0xFFFF
 #define NIC_COMMAND_WRITE							1
 
