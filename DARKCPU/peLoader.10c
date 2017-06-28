@@ -87,7 +87,7 @@
 ; PEIMAGE_OFFSET_RVA_IMPORT_TABLE     			| RvaImportTable            | Describes the RVA of the module's import table, or zero if the module does not have an import table.
 ; PEIMAGE_OFFSET_RVA_EXPORT_TABLE     			| RvaExportTable            | Describes the RVA of the module's export table, or zero if the module does not have an export table.
 ; PEIMAGE_OFFSET_RVA_RELOCATION_TABLE 			| RvaRelocations            | Describes the RVA of the module's relocations table, or zero if the module does not have a relocation table.
-; PEIMAGE_OFFSET_IMAGE_SIZE          			| ImageSize                 | Describes the size of the executable memory
+; PEIMAGE_OFFSET_RVA_SIGHANDLER      			| RvaSigHandler             | Describes the RVA of the module's signal handler, or zero if one does not exist.
 ; PEIMAGE_OFFSET_IMAGE_MD5SPECHASH    			| MD5SpecHash               | The origin of the 8 word MD5SpecHash for the module (\ref MD5SpecHash), or 0 if this module does not implement a particular specification. This hash is stored such that the upper most significant word of the hash is stored here. It is followed, in order of decending significance, by the remaining words of the hash.
 ; PEIMAGE_OFFSET_IMAGE_MD5SPECHASH + 1			| Remaining 7 words of hash | Where the remaining for the MD5SpecHash is stored.
 ;          ...                        			| Code or data Section      | Where image data or code is stored
