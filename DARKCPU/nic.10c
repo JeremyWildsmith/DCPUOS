@@ -29,9 +29,10 @@ nic_header_size:
 	DAT 0 ; Specified by pe loader
 nic_header_import_table:
 	dat 0x656b, 0x6e72, 0x6c65, 0, 0, 0, 0, 0, 0, 0 ; cstring of 'kernel'
-import_device_allocateDevice:
+nic_import_device_allocateDevice:
 	DAT 21
-import_string_compare:
+nic_import_peLoader_unloadImage:
+	dat 48
 	DAT 0xFFFF
 	DAT 0xFFFF
 nic_header_export_table:
@@ -47,7 +48,7 @@ nic_main:
 	_push 0
 	_push 0xAAAA
 	_push 0x1111
-	CallRelPtr import_device_allocateDevice
+	CallRelPtr nic_import_device_allocateDevice
 	add sp, 3
 	set [nic_device], a
 	
@@ -55,11 +56,11 @@ nic_main:
 	
 nic_signal_handler:
 	ifn [sp + 1], SIGNAL_KILL
-		jmp signal_handler_end
+		jmp nic_signal_handler_end
 
 	_loadBase(x)
 	_push x
-	callRelPtr import_peLoader_unloadImage
+	callRelPtr nic_import_peLoader_unloadImage
 	add sp, 1
 	
 	nic_signal_handler_end:
