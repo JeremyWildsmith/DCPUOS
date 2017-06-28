@@ -70,10 +70,16 @@ userInterfaceState_createState:
 		
 userInterfaceState_createState_entry:
 	SET [Y + USERINTERFACESTATE_OFFSET_NEXT], A
+	
+	_push a
+	call userInterfaceState_setActive
+	_pop a
+	
 	SET PC, POP
 	
 userInterfaceState_createState_rootEntry:
 	SET [userInterfaceState_rootState], A
+	
 	SET PC, POP
 	
 
