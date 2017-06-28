@@ -84,10 +84,10 @@ shell_instance:
 	DAT 0xFFFF
 
 shell_prompt:
-	dat	">", 0
-	
+	dat	"/>", 0
+	           
 introMessage:
-	dat "StnCtl Command Terminal V 1.0", 0
+	dat "DarkCpuOS [https://git.io/vQOBz]", "Command Console                 ", "                              ", 0
 	
 command_table:
 	

@@ -39,7 +39,7 @@ graphics_writeString:
 		graphics_write_copyLoop_writeCharacter:
 			set [y], [c]
 			ifl [y], 0x0100
-				bor [y], 0xE000
+				bor [y], 0x7000
 			add y, 1
 			add c, 1
 			
