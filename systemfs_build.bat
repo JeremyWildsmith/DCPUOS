@@ -3,6 +3,8 @@ del filesystem.img
 copy template.vhd .\filesystem.vhd
 ((echo select vdisk file=C:\Users\Jeremy\Desktop\DCPUOS-master\filesystem.vhd) & (echo attach vdisk)) | diskpart
 
+timeout /t 3 /nobreak > NUL
+
 for /f %%D in ('wmic volume get DriveLetter^, Label ^| find "DCPUOSFS"') do set myDrive=%%D
 
 xcopy /s C:\Users\Jeremy\Desktop\DCPUOS-master\system_filesystem\*.* %myDrive%\
