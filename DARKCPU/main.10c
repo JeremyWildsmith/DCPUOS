@@ -123,13 +123,6 @@ kernel_export_table:
 	
 	dat 0xFFFF
 	
-;============================================
-startupMessage:
-	dat "                                ", "    __ _           ___ _   _    ", "   / _\ |_ _ __   / __\ |_| |   ", "   \ \| __| '_ \ / /  | __| |   ", "   _\ \ |_| | | / /___| |_| |   ", "   \__/\__|_| |_\____/ \__|_|   ", "--------------------------------", "      JeremyWildsmith/DCPUOS    ", "      https://git.io/vQOBz      ", "                                ", "  Press Ctrl to toggle views   ", 0
-
-kernelState:
-	dat 0
-	
 ;;
 ;\details kernel_sBootstrapName A pointer to a string describing the name of the bootstrap in the initrd.
 ;\type CHAR*
@@ -161,29 +154,7 @@ kernel_main:
 
 		call device_init					;Initlize device manager
 		call userInterfaceState_init
-		
-		;Allocate memory for kernel state. All this code should disappear soon...
-		_push USERINTERFACESTATE_SIZE
-		call memory_allocate
-		add sp, 1
-		set [kernelState], a
-		
-		_push kernelInputHandler
-		_push 0
-		_push a
-		call userInterfaceState_createState
-		add sp, 3
-		
-		_push a
-		call userInterfaceState_setActive
-		call userInterfaceState_getVram
-		add sp, 1
-		
-		_push 0
-		_push startupMessage
-		_push a
-		call graphics_writeString
-		add sp, 3
+
 	
 		;Initilize keyboard, clock and interrupt handler modules
 		call keyboard_init
@@ -194,9 +165,6 @@ kernel_main:
 		
 		call interrupt_enable
 		_threading_endCycle()	;Pass control on to the next thread (or idle if there are none.
-		
-kernelInputHandler:
-		ret
 
 ;;
 ;\details The entrypoint of the kernel's main thread. This routine is the origin of the first thread created, but not guaranteed to be the first executed. It performs other startup tasks such as mounting the initrd and loading the bootstrap.

@@ -121,21 +121,7 @@ interrupt_handler_clock:
 	SET PC, threading_interrupt ; !Important! call last, does not return control to caller
 	RFI A
 
-interrupt_handler_kernelErrorMessage:
-	dat "KERNEL ERROR KERNEL ERROR KERNEL ERROR KERNEL ERROR KERNEL ERROR ", 0
-	
 interrupt_handler_kernelError:
 	call interrupt_disable
-	
-	_push [kernelState]
-	call userInterfaceState_setActive
-	call userInterfaceState_getVram
-	add sp, 1
-	
-	_push 0
-	_push interrupt_handler_kernelErrorMessage
-	_push a
-	call graphics_writeString
-	add sp, 3
 	
 	sub pc, 1

@@ -71,16 +71,17 @@ userInterfaceState_createState:
 userInterfaceState_createState_entry:
 	SET [Y + USERINTERFACESTATE_OFFSET_NEXT], A
 	
+	jmp userInterfaceState_createState_end
+	
+userInterfaceState_createState_rootEntry:
+	SET [userInterfaceState_rootState], A
+
+userInterfaceState_createState_end:
 	_push a
 	call userInterfaceState_setActive
 	_pop a
 	
-	SET PC, POP
-	
-userInterfaceState_createState_rootEntry:
-	SET [userInterfaceState_rootState], A
-	
-	SET PC, POP
+	ret
 	
 
 ;ARG1 is pointer to userInterfaceState structure
@@ -97,7 +98,7 @@ userInterfaceState_destroyState:
 	IFN [Y], [SP+1]
 		SET PC, userInterfaceState_destroyState_seekLastLoop
 	
-	SET PC, userInterfaceState_destroyState_end
+	SET PC, userInterfaceState_destroyState_found
 		
 	userInterfaceState_destroyState_seekLastLoop:
 		IFE [Y],  [SP+1]
@@ -120,12 +121,13 @@ userInterfaceState_destroyState_end:
 ;Toggles through to news state
 userInterfaceState_toggleState:
 	SET C, [userInterfaceState_activeState]
+	
+	IFE C, USERINTERFACESTATE_INVALIDSTATE
+		SET PC, userInterfaceState_toggleState_noEntries
+		
 	SET C, [C + USERINTERFACESTATE_OFFSET_NEXT]
 	IFE C, USERINTERFACESTATE_INVALIDSTATE
 		SET C, [userInterfaceState_rootState]
-	
-	IFE C, userInterfaceState_toggleState_noEntries
-		SET PC, userInterfaceState_toggleState_noEntries
 		
 	SET PUSH, C
 	JSR userInterfaceState_setActive
@@ -162,7 +164,7 @@ userInterfaceState_clearActiveState:
 	SET PUSH, B
 	
 	SET B, 0
-	SET [userInterfaceState_activeState], 0
+	SET [userInterfaceState_activeState], USERINTERFACESTATE_INVALIDSTATE
 	
 	SET A, GRAPHICS_INTERRUPTCODE_MAPSCREEN
 	
@@ -174,7 +176,7 @@ userInterfaceState_clearActiveState:
 ;cdecl, arg1 input
 userInterfaceState_issueInput:
 
-	IFN [SP+1], KEYBOARD_KEY_CTRL
+	IFN [SP+1], KEYBOARD_KEY_BACKTICK
 		SET PC, userInterfaceState_issueInput_passInput
 	
 	JSR userInterfaceState_toggleState
