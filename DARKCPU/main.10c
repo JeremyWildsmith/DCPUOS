@@ -240,12 +240,6 @@ kernel_initThreadEp:
 		call peLoader_initImage
 		add sp, 3
 		
-		_push 0
-		_sfLocalPtr(push, VFS_FILE_OFFSET_LASTMEMBER + VFS_FILE_SIZE) ; Push pointer to bootstrap file descriptor.
-		_push stnacs_image_header
-		call peLoader_initImage
-		add sp, 3
-		
 		call threading_free
 		
 kernel_serviceLoop:

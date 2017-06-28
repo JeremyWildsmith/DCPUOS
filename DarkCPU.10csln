@@ -13,7 +13,7 @@
     <project path="LAFS\LAFS.10cproj" />
     <project path="M35\M35.10cproj" />
     <project path="common\common.10cproj" />
-    <project path="FILESYSTEM_DISK\FILESYSTEM_DISK.10cproj" />
     <project path="firmware\firmware.10cproj" />
+    <project path="stnacs\stnacs.10cproj" />
   </projects>
 </solution>
