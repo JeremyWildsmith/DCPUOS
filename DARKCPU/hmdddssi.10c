@@ -1,0 +1,194 @@
+;;
+;\file rsfs-10c.c
+;\anchor HMD DDSSI Storage Driver
+;\brief This module implements a DDSSI interface driver.. 
+;\author Jeremy (0x10cforums.com)
+;\version 1.0
+;\date Dec, 22, 2012
+;
+;;
+
+#define HMD_STATE_READY 1
+
+:hmdddssi_header
+:hmdddssi_header_signature
+	DAT 0x10C
+
+:hmdddssi_header_next
+	DAT	0xFFFF
+	
+:hmdddssi_header_name
+	DAT "hmdddssi", 0, 0
+	
+:hmdddssi_header_rva_ep
+	DAT hmdddssi_init - hmdddssi_header
+	
+:hmdddssi_header_rva_import
+	DAT hmdddssi_header_import_table - hmdddssi_header
+	
+:hmdddssi_header_rva_export
+	DAT ramddssi_header_export_table - hmdddssi_header
+	
+:hmdddssi_header_rva_relocations
+	DAT 0
+
+:hmdddssi_header_rva_sighandler
+	DAT hmdddssi_signal_handler - hmdddssi_header
+	
+:hmdddssi_header_specHash
+	DAT 0x0000
+	
+hmdddssi_header_import_table:
+	dat 0x656b, 0x6e72, 0x6c65, 0, 0, 0, 0, 0, 0, 0 ; cstring of 'kernel'
+hmdddssi_import_device_allocateDevice:
+	DAT 21
+hmdddssi_import_peLoader_unloadImage:
+	dat 48
+hmdddssi_import_mutex_create:
+	dat 16
+hmdddssi_import_mutex_destroy:
+	dat 17
+hmdddssi_import_mutex_lock:
+	dat 18
+hmdddssi_import_mutex_release:
+	dat 19
+hmdddssi_import_mutex_wait:
+	dat 20
+	DAT 0xFFFF
+	DAT 0xFFFF
+	
+:hmdddssi_header_export_table
+	DAT hmdddssi_getFlags
+	DAT hmdddssi_getSectorSize
+	DAT hmdddssi_getVolumeSize
+	DAT hmdddssi_read
+	DAT hmdddssi_write
+	DAT 0xFFFF
+
+:hmdddssi_device
+	dat 0
+
+:hmdddssi_interfaceAccess_mutex
+	dat 0
+	
+:hmdddssi_hmdWait_mutex
+	dat 0
+;;
+;\brief Initializes the initrd in memory.
+;\note Uses the cdecl calling convention \ref cdecl
+;;
+hmdddssi_init:
+		relPushLabel hmdddssi_interruptHandler
+		_push 0x4fd5
+		_push 0x24c5
+		CallRelPtr hmdddssi_import_device_allocateDevice
+		add sp, 3
+		set [hmdddssi_device], a
+		
+		CallRelPtr hmdddssi_import_mutex_create
+		relLoadLabel y, hmdddssi_interfaceAccess_mutex
+		set [y], a
+		
+		CallRelPtr hmdddssi_import_mutex_create
+		relLoadLabel y, hmdddssi_hmdWait_mutex
+		set [y], a
+		
+		ret
+
+hmdddssi_interruptHandler:
+	ife a, HMD_STATE_READY
+		
+	_pop ex
+	rfi a
+
+hmdddssi_signal_handler:
+	ifn [sp + 1], SIGNAL_KILL
+		jmp hmdddssi_signal_handler_end
+
+	relLoadLabel y, hmdddssi_interfaceAccess_mutex
+	_push [y]
+	CallRelPtr hmdddssi_import_mutex_destroy
+	add sp, 1
+	
+	relLoadLabel y, hmdddssi_hmdWait_mutex
+	_push [y]
+	CallRelPtr hmdddssi_import_mutex_destroy
+	add sp, 1
+
+	_loadBase(x)
+	_push x
+	callRelPtr hmdddssi_import_peLoader_unloadImage
+	add sp, 1
+	
+	hmdddssi_signal_handler_end:
+	ret
+
+
+;\brief Gets the flags set for the storage device
+;\note Uses the cdecl calling convention \ref cdecl
+;\returns Returns the flags set for the storage device
+;;
+hmdddssi_getFlags:
+		set a, 0
+		ret
+;;
+;\brief Gets the sectors size of the storage device
+;\note Uses the cdecl calling convention \ref cdecl
+;\returns Returns the sectors size of the storage device
+;;
+hmdddssi_getSectorSize:
+		set a, 256 ; 256 words per sector.
+		ret
+
+;;
+;\brief Gets the size of the storage volume in terms of sectors.
+;\note Uses the cdecl calling convention \ref cdecl
+;\returns Returns the size of the storage volume in terms of sectors
+;;
+hmdddssi_getVolumeSize:
+		set a, 2880
+		ret
+
+;;
+;\brief Reads a specified region of data from ram storage volume.
+;\note Uses the cdecl calling convention \ref cdecl
+;\param wSectorPos Position to start read in units of sector size
+;\param wOffset Offset in words from the origin of wSectorPos
+;\param pDest A pointer to the destination of the read data
+;\param wSize Size of the buffer in words.
+;;
+hmdddssi_read:
+		_sfBegin(0)
+		
+		relLoadLabel y, hmdddssi_interfaceAccess_mutex
+		_push [y]
+		CallRelPtr hmdddssi_import_mutex_lock
+		
+		;Do IO here
+		
+		
+		CallRelPtr hmdddssi_import_mutex_release
+		add sp, 1
+
+		_sfEnd()
+		ret
+
+;;
+;\attention Performs no function. Implemented to comply with \ref DDSSI, though this is a read-only storage device unconditionally.
+;;
+hmdddssi_write:
+		_sfBegin(0)
+		
+		relLoadLabel y, hmdddssi_interfaceAccess_mutex
+		_push [y]
+		CallRelPtr hmdddssi_import_mutex_lock
+		
+		;Do IO here
+		
+		
+		CallRelPtr hmdddssi_import_mutex_release
+		add sp, 1
+
+		_sfEnd()
+		ret
+	
