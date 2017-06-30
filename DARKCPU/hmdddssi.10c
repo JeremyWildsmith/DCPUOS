@@ -9,6 +9,14 @@
 ;;
 
 #define HMD_STATE_READY 1
+#define HMD_STATE_BUSY 3
+
+#define HMD_INTERRUPT_POLL 0
+#define HMD_INTERRUPT_READ_SECTOR 2
+
+#define HMD_ERROR_NONE 0
+
+#define SECTOR_SIZE_WORDS 256
 
 :hmdddssi_header
 :hmdddssi_header_signature
@@ -54,6 +62,10 @@ hmdddssi_import_mutex_release:
 	dat 19
 hmdddssi_import_mutex_wait:
 	dat 20
+hmdddssi_import_threading_free:
+	dat 15
+hmdddssi_import_memory_copy:
+	dat 3
 	DAT 0xFFFF
 	DAT 0xFFFF
 	
@@ -70,15 +82,12 @@ hmdddssi_import_mutex_wait:
 
 :hmdddssi_interfaceAccess_mutex
 	dat 0
-	
-:hmdddssi_hmdWait_mutex
-	dat 0
 ;;
 ;\brief Initializes the initrd in memory.
 ;\note Uses the cdecl calling convention \ref cdecl
 ;;
 hmdddssi_init:
-		relPushLabel hmdddssi_interruptHandler
+		_push 0
 		_push 0x4fd5
 		_push 0x24c5
 		CallRelPtr hmdddssi_import_device_allocateDevice
@@ -89,17 +98,7 @@ hmdddssi_init:
 		relLoadLabel y, hmdddssi_interfaceAccess_mutex
 		set [y], a
 		
-		CallRelPtr hmdddssi_import_mutex_create
-		relLoadLabel y, hmdddssi_hmdWait_mutex
-		set [y], a
-		
 		ret
-
-hmdddssi_interruptHandler:
-	ife a, HMD_STATE_READY
-		
-	_pop ex
-	rfi a
 
 hmdddssi_signal_handler:
 	ifn [sp + 1], SIGNAL_KILL
@@ -107,11 +106,7 @@ hmdddssi_signal_handler:
 
 	relLoadLabel y, hmdddssi_interfaceAccess_mutex
 	_push [y]
-	CallRelPtr hmdddssi_import_mutex_destroy
-	add sp, 1
-	
-	relLoadLabel y, hmdddssi_hmdWait_mutex
-	_push [y]
+	CallRelPtr hmdddssi_import_mutex_lock ; Lock first, let any current tasks finish executing...
 	CallRelPtr hmdddssi_import_mutex_destroy
 	add sp, 1
 
@@ -123,6 +118,24 @@ hmdddssi_signal_handler:
 	hmdddssi_signal_handler_end:
 	ret
 
+hmdddssi_waitNotBusy:	
+	_push b
+	hmdddssi_waitNotBusy_loop:
+		
+		set a, HMD_INTERRUPT_POLL
+		relLoadLabel y, hmdddssi_device
+		int [y]
+		
+		ifn b, HMD_STATE_BUSY
+			jmpD hmdddssi_waitNotBusy_end
+		
+		callRelPtr hmdddssi_import_threading_free
+		jmpU hmdddssi_waitNotBusy_loop
+		
+	hmdddssi_waitNotBusy_end:
+		set a, c
+		_pop b
+		ret
 
 ;\brief Gets the flags set for the storage device
 ;\note Uses the cdecl calling convention \ref cdecl
@@ -137,7 +150,7 @@ hmdddssi_getFlags:
 ;\returns Returns the sectors size of the storage device
 ;;
 hmdddssi_getSectorSize:
-		set a, 256 ; 256 words per sector.
+		set a, SECTOR_SIZE_WORDS ; 256 words per sector.
 		ret
 
 ;;
@@ -150,28 +163,111 @@ hmdddssi_getVolumeSize:
 		ret
 
 ;;
-;\brief Reads a specified region of data from ram storage volume.
+;\brief Reads a specified region of data from storage volume.
 ;\note Uses the cdecl calling convention \ref cdecl
+;\note Size of destination buffer must at be evenly divisible by one sector.
 ;\param wSectorPos Position to start read in units of sector size
 ;\param wOffset Offset in words from the origin of wSectorPos
 ;\param pDest A pointer to the destination of the read data
 ;\param wSize Size of the buffer in words.
+;\return 0 on fail, any other value on success.
 ;;
 hmdddssi_read:
-		_sfBegin(0)
+		_sfBegin(2)
+		_push z
+		_push j
+		_push i
 		
 		relLoadLabel y, hmdddssi_interfaceAccess_mutex
 		_push [y]
 		CallRelPtr hmdddssi_import_mutex_lock
 		
-		;Do IO here
+		;Calculate start sector, place result in i.
+		_sfArg(i, 0)
+		_sfArg(y, 1)
+		
+		div y, SECTOR_SIZE_WORDS ; x = Offset in sectors.
+		_sfLocalSet(0, ex) ; = number of words from origin
+		add i, y ; = Actual start sector
 		
 		
+		
+		;Calculate number of sectors to read, store result in c
+		_sfArg(j, 3)
+		div j, SECTOR_SIZE_WORDS
+		
+		set z, 0
+		
+		;i = start sector
+		;z = number of read sectors
+		;j = number of sectors to read
+		;local 0 = offset from first sector to read from in words.
+		hmdddssi_read_sector:
+			_push b
+			
+			set b, SECTOR_SIZE_WORDS
+			_sfLocal(push, 0)
+			sub b, pop ; = bytes read into first sector and kept (taking into account offset.)
+			
+			set y, z
+			mul y, SECTOR_SIZE_WORDS
+			_sfArg(push, 2) ; Destination buffer
+			add y, pop
+			
+			ifn z, 0 ; If first sector, read entire sector into A, then we will copy it up to clip off date before the origin.
+				sub y, b ; = Address to read sector into
+			
+			relLoadLabel b, hmdddssi_device
+			set x, i
+			int [b]
+			set c, b
+			_pop b
+			ifn c, 1 ;If read failed
+				jmpD hmdddssi_read_fail
+			
+			relCall hmdddssi_waitNotBusy
+			
+			ifn a, HMD_ERROR_NONE
+				jmpD hmdddssi_read_fail
+			
+			ifn z, 0
+				jmpD hmddssi_read_sector_skipOffsetBuffer
+			
+			_sfLocal(c, 0) ; = offset from first sector to read into buffer
+			ife c, 0
+				jmpD hmddssi_read_sector_skipOffsetBuffer
+			
+			set push, SECTOR_SIZE_WORDS
+			sub [sp], c ; Argument size = Actual needed bytes from the buffer
+			_sfArg(push, 2)
+			add [sp], c ; Argument source = start address of where bytes are needed
+			_sfArg(push, 2) ; Destination = start of buffer
+			CallRelPtr hmdddssi_import_memory_copy
+			add sp, 3
+			
+		hmddssi_read_sector_skipOffsetBuffer:
+			add i, 1
+			add z, 1
+			ifn z, j
+				jmpU hmdddssi_read_sector
+			
 		CallRelPtr hmdddssi_import_mutex_release
 		add sp, 1
-
+		
+		set a, 1
+	hmdddssi_read_end:
+		_pop i
+		_pop j
+		_pop z
 		_sfEnd()
 		ret
+		
+	hmdddssi_read_fail
+		CallRelPtr hmdddssi_import_mutex_release
+		add sp, 1
+		
+		set a, 0
+		jmp hmdddssi_read_end
 
 ;;
 ;\attention Performs no function. Implemented to comply with \ref DDSSI, though this is a read-only storage device unconditionally.
@@ -182,6 +278,7 @@ hmdddssi_write:
 		relLoadLabel y, hmdddssi_interfaceAccess_mutex
 		_push [y]
 		CallRelPtr hmdddssi_import_mutex_lock
+		
 		
 		;Do IO here
 		
