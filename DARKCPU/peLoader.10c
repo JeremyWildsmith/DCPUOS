@@ -405,7 +405,7 @@ peLoader_findLastImage:
 		ret
 
 ;;
-;\details Determines the address of an executable in memory and returns the base address of that image. This is done by walking through the linked list and comapring each entries name with the one we are looknig for.
+;\details Determines the address of an executable in memory and returns the base address of that image. This is done by walking through the linked list and comapring each entries name with the one we are looking for.
 ;\param(Char*, sNameSinglebyte) Name of the module to locate the base address of in ascii single-byte.
 ;\return(STATUS) Returns base address of executable image in memory, or zero if the entry was not found.
 ;\call cdecl
