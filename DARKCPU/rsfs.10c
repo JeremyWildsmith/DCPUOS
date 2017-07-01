@@ -76,12 +76,36 @@
 	DAT rsfs_fEnum
 	DAT 0xFFFF
 	
+
+rsfs_ddssi_read_media:
+	dat 0	
+
+rsfs_ddssi_read_write:
+	dat 0	
+	
+;;
+;\brief Start the filesystem driver on the specified storage medium.
+;\note Uses the cdecl calling convention \ref cdecl
+;\param A pointer to the base address of the storage driver.
+;;
 rsfs_fsStart:
+	_sfBegin(0)
+	
+	_push DDSSI_EXPORT_READ
+	_sfArg(push, 0)
+	call peLoader_findExport
+	set [rsfs_ddssi_read_media], a
+	
+	set [sp + 1], DDSSI_EXPORT_WRITE
+	call peLoader_findExport
+	set [rsfs_ddssi_read_write], a
+	
+	add sp, 2
+	_sfEnd
 	ret
 	
 rsfs_fsEnd:
 	ret
-
 
 ;;
 ;\brief Gets the root directory of a file descriptor for the filesystem.
@@ -101,7 +125,7 @@ rsfs_fGetRoot:
 		_sfLocalPtr(push, RSFS_HEADER_SIZE - 1)
 		_push 0
 		_push 0
-		call [i + VFS_FILE_OFFSET_MEDIAREAD]
+		call [rsfs_ddssi_read_media]
 		add sp, 4
 		
 		;Access the data in reverse order, so local 0 is our numberRootEntries
@@ -140,7 +164,7 @@ rsfs_fOpen:
 			ife x, 0
 				jmp rsfs_fOpen_notFound
 				
-			call [i + VFS_FILE_OFFSET_MEDIAREAD]
+			call [rsfs_ddssi_read_media]
 			add [sp + 1], RSFS_ENTRY_SIZE
 			
 			_sfLocalPtr(a, RSFS_ENTRY_LASTMEMBER - RSFS_ENTRY_OFFSET_NAME)
@@ -225,7 +249,7 @@ rsfs_fRead:
 		_sfArg(push, 1)
 		_push c
 		_push 0
-		call [a + VFS_FILE_OFFSET_MEDIAREAD]
+		call [rsfs_ddssi_read_media]
 		add sp, 4
 		
 		jmp rsfs_fRead_end
@@ -270,7 +294,7 @@ rsfs_fEnum:
 		_sfLocalPtr(push, RSFS_ENTRY_SIZE - 1)
 		_push [i + VFS_FILE_OFFSET_FILEIDLO]
 		_push 0
-		call [i + VFS_FILE_OFFSET_MEDIAREAD]
+		call [rsfs_ddssi_read_media]
 		add sp, 4
 		
 		_sfLocal([i + VFS_FILE_OFFSET_LENGTH], RSFS_ENTRY_LASTMEMBER - RSFS_ENTRY_OFFSET_SIZELENGTH)

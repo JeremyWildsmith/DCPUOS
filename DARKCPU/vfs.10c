@@ -42,8 +42,8 @@
 ; VFS_FILE_OFFSET_FILEIDLO    | dwFileIdLo         | Low word of file id. The file id member can be used only internally by the filesystem driver, and in any manner the implementation of the filesystem driver deems useful.
 ; VFS_FILE_OFFSET_MOUNTPOINT  | dwMountPoint       | An index describing the mountpoint this file's containing filesystem is mounted on.
 ; VFS_FILE_OFFSET_SECTORSIZE  | dwSectorSize       | The size of a single sector of the storage media.
-; VFS_FILE_OFFSET_MEDIAREAD   | pfnMediaRead       | A pointer to the raw media read operation of the underlying storage device
-; VFS_FILE_OFFSET_MEDIAWRITE  | pfnMediaWrite      | A pointer to the raw media write operation of the underlying storage device
+; VFS_FILE_OFFSET_RESERVED0   | reserved           | Reserved for use by FS driver.
+; VFS_FILE_OFFSET_RESERVED1   | reserved           | Reserved for use by FS driver.
 ;
 ;
 ;\subsection vfsFileFlags File Flags
@@ -123,13 +123,13 @@
 ;\type WORD
 ;\details Defines offset to file descriptor's mediaRead member. \ref virtualFileSystemFileLayout
 ;;
-#define VFS_FILE_OFFSET_MEDIAREAD   7
+#define VFS_FILE_OFFSET_RESERVED0   7
 
 ;;
 ;\type WORD
 ;\details Defines offset to file descriptor's mediaWrite member. \ref virtualFileSystemFileLayout
 ;;
-#define VFS_FILE_OFFSET_MEDIAWRITE  8
+#define VFS_FILE_OFFSET_RESERVED1  8
 
 ;;
 ;\type WORD
@@ -246,6 +246,7 @@ vfs_findFreeMount:
 ;;
 ;\call cdecl
 ;\details This routine guarantees that the lowest free mount index will be used.
+;\brief Creates a new mount point. Informs the File-System driver of the storage medium used.
 ;\param(IMAGE*, pStorageDriver) Pointer to the storage device driver for this mountpoint.
 ;\param(IMAGE*, pFileSystemDriver) Pointer to the filesystem driver for this mountpoint.
 ;\return(WORD) Returns the mountpoint index used, or 0xFFFF if there were no free mountpoints.
@@ -272,7 +273,9 @@ vfs_createMount:
 		call peLoader_findExport
 		add sp, 2
 
+		_sfArg(push, 0)
 		call a
+		add sp, 1
 		
 		_pop a
 	vfs_createMount_end:
@@ -330,8 +333,6 @@ vfs_fOpenFile:
 		
 		set [y + VFS_FILE_OFFSET_MOUNTPOINT], [a + VFS_FILE_OFFSET_MOUNTPOINT]
 		set [y + VFS_FILE_OFFSET_SECTORSIZE], [a + VFS_FILE_OFFSET_SECTORSIZE]
-		set [y + VFS_FILE_OFFSET_MEDIAREAD],  [a + VFS_FILE_OFFSET_MEDIAREAD]
-		set [y + VFS_FILE_OFFSET_MEDIAWRITE], [a + VFS_FILE_OFFSET_MEDIAWRITE]
 		
 		_push [a + VFS_FILE_OFFSET_MOUNTPOINT]
 		call vfs_getMountFilesystem
@@ -408,16 +409,6 @@ vfs_fGetRoot:
 		call peLoader_findExport
 		call a
 		set [i + VFS_FILE_OFFSET_SECTORSIZE], a
-		
-		;Init mediaread pointer
-		set [sp + 1], DDSSI_EXPORT_READ
-		call peLoader_findExport
-		set [i + VFS_FILE_OFFSET_MEDIAREAD], a
-		
-		;Init mediawrite pointer
-		set [sp + 1], DDSSI_EXPORT_WRITE
-		call peLoader_findExport
-		set [i + VFS_FILE_OFFSET_MEDIAWRITE], a	
 		add sp, 2
 		
 		;Give the root directory to the filesystem interface for post-processing
@@ -527,8 +518,6 @@ vfs_fEnum:
 		
 		set [y + VFS_FILE_OFFSET_MOUNTPOINT], [a + VFS_FILE_OFFSET_MOUNTPOINT]
 		set [y + VFS_FILE_OFFSET_SECTORSIZE], [a + VFS_FILE_OFFSET_SECTORSIZE]
-		set [y + VFS_FILE_OFFSET_MEDIAREAD],  [a + VFS_FILE_OFFSET_MEDIAREAD]
-		set [y + VFS_FILE_OFFSET_MEDIAWRITE], [a + VFS_FILE_OFFSET_MEDIAWRITE]
 		
 		_push [a + VFS_FILE_OFFSET_MOUNTPOINT]
 		call vfs_getMountFilesystem
