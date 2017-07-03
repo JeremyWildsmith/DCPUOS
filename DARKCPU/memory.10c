@@ -199,7 +199,7 @@ memory_allocate:
 
 ;;
 ;\call cdecl
-;\details Frees a previously allocated region of memory
+;\details Frees a previously allocated region of memory. If pBaseAddress is null, the function returns immediately and performs no de-allocations.
 ;\param(WORD*, pBaseAddress) Specifies the base address of the memory region to be freed
 ;\param(WORD, wSize) The size of the memory region to be freed. This is rounded upwards to aligned with a memory chunck. 
 ;\return(VOID)
