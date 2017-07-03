@@ -207,6 +207,10 @@ memory_allocate:
 memory_free:
 		_sfBegin(0)
 		
+		_sfArg(c, 0)
+		ife c, 0
+			jmp memory_free_end
+		
 		_push [memory_accessMutex] 			; Lock the memory access mutex to assure we are the only thread executing inside of this routine
 		call mutex_lock
 		add sp, 1
@@ -232,6 +236,7 @@ memory_free:
 		call mutex_release
 		add sp, 1
 		
+	memory_free_end:
 		_sfEnd()
 		ret
 
@@ -269,3 +274,39 @@ memory_copy:
 		_sfEnd()
 		ret
 		
+;;
+;\call cdecl
+;\details Shrinks a pre-existing memory allocation. wSize must be smaller or equal to the initial allocation.
+;\param(WORD*, pMem) Specifies the base address of the memory region.
+;\param(WORD, wOldSize) The old size of the memory region. 
+;\param(WORD, wNewSize) The new size of the memory region. 
+;\return(void*) Base address of the memory region shrinked, which will be the same as pMem.
+;;
+memory_shrink:
+		_sfBegin(0)
+		_sfArg(a, 2)
+		div a, MEMORY_CHUNK_SIZE
+		ifn ex, 0
+			add a, 1
+		
+		mul a, MEMORY_CHUNK_SIZE
+		
+		
+		_sfArg(y, 1)
+		sub y, a
+		
+		ifl y, MEMORY_CHUNK_SIZE
+			jmp memory_shrink_end
+		
+		_push y
+		
+		_sfArg(y, 0)
+		add y, a ;Calculate new base address
+		_push y
+		call memory_free
+		add sp, 2
+		
+	memory_shrink_end:
+		_sfArg(a, 0)
+		_sfEnd
+		ret
