@@ -65,6 +65,12 @@ string_stoi:
 	string_stoi_next:
 		ife [y], 0
 			jmpD string_stoi_end
+			
+		ifg [y], 0x39
+			jmpD string_stoi_end
+			
+		ifl [y], 0x30
+			jmpD string_stoi_end
 		
 		mul a, 10
 		
@@ -239,6 +245,110 @@ string_sbCompare:
 	string_sbCompare_end:
 		_pop j
 		_pop i
+		_sfEnd()
+		ret
+		
+
+;cdecl
+;ARG1 string buffer
+;returns void
+string_reverse:
+		_sfBegin(0)
+		
+		_push i
+		_push j
+		
+		set i, 0
+		
+		_sfArg(push, 0)
+		call string_length
+		set j, a ; J is string length
+		sub j, 1
+		_pop a ;A is pointer to string
+	
+	string_reverse_next:
+		ife i, j
+			jmp string_reverse_end
+		ifg i, j
+			jmp string_reverse_end
+		
+		;Swap [a + i] with [a + j]
+		set x, a
+		add x, i
+		_push [x]
+		set y, a
+		add y, j
+		_push [y]
+		
+		_pop [x]
+		_pop [y]
+		
+		add i, 1
+		sub j, 1
+		
+		jmp string_reverse_next
+		
+	string_reverse_end:
+		_pop i
+		_pop j
+		_sfEnd
+		ret
+		
+
+;cdecl
+;ARG1 string buffer, should be at least 6 characters in length
+;ARG2 word integer
+;returns pointer to end of string (null terminator)
+string_itoa:
+		_sfBegin(0)
+		
+		_sfArg(a, 0)
+		_sfArg(c, 1)
+		
+		ife c, 0
+			jmp string_itoa_zero
+			
+		ifa c, -1
+			jmp string_itoa_next
+		
+		xor c, 0xFFFF
+		add c, 1
+	string_itoa_next:
+	
+		set [a], c
+		mod [a], 10
+		add [a], '0'
+		
+		add a, 1
+		set [a], 0
+		div c, 10
+		ifg c, 0
+			jmp string_itoa_next
+		
+		_sfArg(c, 0)
+		ifa c, -1
+			jmp string_itoa_end
+		
+		set [a], '-'
+		add a, 1
+		set [a], 0
+		
+		jmp string_itoa_end
+		
+	string_itoa_zero:
+		set [a], '0'
+		add a, 1
+		set [a], 0
+	string_itoa_end:
+
+		_push a ;Preserve pointer to last character
+		
+		_sfArg(a, 0)
+		_push a
+		call string_reverse
+		add sp, 1
+
+		_pop a
 		_sfEnd()
 		ret
 		

@@ -37,5 +37,6 @@
     <file path="initrd_end.10c" />
     <file path="signal.10c" />
     <file path="hmdddssi.10c" />
+    <file path="atmos.10c" />
   </files>
 </project>

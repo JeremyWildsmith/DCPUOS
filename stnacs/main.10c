@@ -134,6 +134,7 @@ main:
 	ret
 	
 signal_handler:
+	set a, 0
 	ifn [sp + 1], SIGNAL_KILL
 		jmp signal_handler_end
 
@@ -144,10 +145,7 @@ signal_handler:
 	callRelPtr import_memory_freeMemory
 	add sp, 2
 	
-	_loadBase(x)
-	_push x
-	callRelPtr import_peLoader_unloadImage
-	add sp, 1
+	set a, SIGNAL_KILL
 	
 	signal_handler_end:
 	ret

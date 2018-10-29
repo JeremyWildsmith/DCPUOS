@@ -1,0 +1,1414 @@
+
+;REMOVE THE -stnacs_image_header when you put this in a seperate executable...
+
+#define SHELLINSTANCE_SIZE 						450
+
+#define PING_INTERVAL_TICKS	100
+
+#define NUM_NODES 5
+#define NODE_SIZE 21
+#define NETWORK_SIZE 5 + NUM_NODES * NODE_SIZE
+#define NUM_NETWORKS 2
+
+#define NETWORK_OFFSET_NAME 0
+#define NETWORK_OFFSET_CONTROL 4
+#define NETWORK_OFFSET_NODES 5
+
+#define NODE_OFFSET_NAME 0
+#define NODE_OFFSET_SENSOR 4
+#define NODE_OFFSET_CONTROL 5
+#define NODE_NAME_LENGTH 3
+#define NODE_READING_NAME_LENGTH 4
+#define NODE_OFFSET_READINGS 6
+
+#define NODE_READING_OFFSET_NAME 0
+#define NODE_READING_OFFSET_HIGH_VALUE 5
+#define NODE_READING_OFFSET_LOW_VALUE 6
+
+#define NODE_READING_SIZE 7
+
+#define NODE_OFFSET_FLAGS 20
+
+#define NODE_FLAG_TOGGLE_READING 1
+#define NODE_FLAG_ACTIVE 2
+
+#define PORT_MEASUREMENT_READING 60
+#define PORT_SIGNAL_READING 55
+#define PORT_PING	25
+
+atmos_image_header:
+header_signature:
+	DAT 0x10C
+
+header_next:
+	DAT	0
+	
+header_name:
+	DAT 0x7461, 0x6f6d, 0x73, 0, 0, 0, 0, 0, 0, 0 ; cstring of 'atmos'
+	
+header_rva_ep:
+	DAT main - atmos_image_header
+	
+test_program_rva_import:
+	DAT header_import_table - atmos_image_header
+test_program_rva_export:
+	DAT header_export_table - atmos_image_header
+test_program_rva_offset:
+	DAT header_relocations - atmos_image_header
+test_program_rva_sigHandler:
+	DAT signal_handler - atmos_image_header
+test_program_size:
+	DAT 0 ; Specified by pe loader
+	
+header_import_table:
+	dat 0x656b, 0x6e72, 0x6c65, 0, 0, 0, 0, 0, 0, 0 ; cstring of 'kernel'
+import_memory_allocateMemory:
+	DAT 1
+import_memory_freeMemory:
+	DAT 2
+import_memory_copyMemory:
+	DAT 3
+import_string_compare:
+	dat 41
+import_string_length:
+	dat 44
+import_vfs_fGetRoot:
+	dat 35
+import_vfs_fEnum:
+	dat 39
+import_vfs_fOpenFileW:
+	dat 45
+import_vfs_string_replace:
+	dat 43
+import_memory_copy:
+	dat 3
+import_peLoader_root:
+	dat 46
+import_string_singlebyteToWideChar:
+	dat 42
+import_peLoader_loadImage:
+	dat 27
+import_peLoader_unloadImage:
+	dat 48
+import_signal_dispatch:
+	dat 47
+import_string_indexOfString:
+	dat 49
+import_string_stoi:
+	dat 50
+import_string_itoa:
+	dat 51
+import_mutex_create:
+	dat 16
+import_mutex_destroy:
+	dat 17
+import_mutex_lock:
+	dat 18
+import_mutex_release:
+	dat 19
+import_threading_createThread:
+	dat 11
+import_threading_removeThread:
+	dat 13
+import_clock_getTicks:
+	dat 40
+	DAT 0xFFFF
+	dat 0x7874, 0x6974, 0x006f, 0, 0, 0, 0, 0, 0, 0 ;cstring of 'txtio'
+import_shell_createShell:
+	DAT 0
+import_shell_writeString:
+	DAT 1
+import_shell_processInput:
+	DAT 2
+import_shell_newLine:
+	dat 3
+import_shell_destroy:
+	dat 4
+	DAT 0xFFFF
+	DAT 0x696E, 0x0063, 0, 0, 0, 0, 0, 0, 0, 0 ; cstring of 'nic'
+import_nic_send:
+	dat 0
+import_nic_recv:
+	dat 1
+	dat 0xFFFF
+	DAT 0xFFFF
+header_export_table:
+	DAT 0xFFFF
+header_relocations:
+	DAT 0xFFFF
+
+inputState:
+	DAT	0xFFFF
+
+inputStateVram:
+	DAT 0xFFFF
+
+shell_prompt:
+	dat	">", 0
+	
+introMessage:
+	dat "System Control Terminal", 0
+	
+command_table:
+	
+	dat cmd_help
+	dat "help", 0
+	
+	dat cmd_anet
+	dat "anet", 0
+	
+	dat cmd_anode
+	dat "anode", 0
+	
+	dat cmd_net
+	dat "net", 0
+	
+	dat cmd_stat
+	dat "stat", 0
+
+	dat cmd_ping
+	dat "ping", 0
+	
+	dat 0
+	
+access_mutex:
+	dat 0
+	
+logic_loop_thread:
+	dat 0
+	
+shell_instance:
+	dat 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	
+networks:
+	dat 0, 0, 0, 0 ;3 Chars + Null, network name
+	dat 0 ; Control Ip
+	
+		dat 0, 0, 0, 0 ;3 Chars + Null, node name
+		dat 0 ;Sensor Ip Address
+		dat 0 ;Control Signal
+		dat 0, 0, 0, 0, 0 ; Reading A Name
+		dat 0 ;Last reading a high
+		dat 0 ;Last reading a low
+		dat 0, 0, 0, 0, 0 ; Reading B Name
+		dat 0 ;Last reading b high
+		dat 0 ;Last reading b low
+		dat 0 ;Flags
+		
+		dat 0, 0, 0, 0 ;3 Chars + Null, node name
+		dat 0 ;Sensor Ip Address
+		dat 0 ;Control Signal
+		dat 0, 0, 0, 0, 0 ; Reading A Name
+		dat 0 ;Last reading a high
+		dat 0 ;Last reading a low
+		dat 0, 0, 0, 0, 0 ; Reading B Name
+		dat 0 ;Last reading b high
+		dat 0 ;Last reading b low
+		dat 0 ;Flags
+		
+		dat 0, 0, 0, 0 ;3 Chars + Null, node name
+		dat 0 ;Sensor Ip Address
+		dat 0 ;Control Signal
+		dat 0, 0, 0, 0, 0 ; Reading A Name
+		dat 0 ;Last reading a high
+		dat 0 ;Last reading a low
+		dat 0, 0, 0, 0, 0 ; Reading B Name
+		dat 0 ;Last reading b high
+		dat 0 ;Last reading b low
+		dat 0 ;Flags
+		
+		dat 0, 0, 0, 0 ;3 Chars + Null, node name
+		dat 0 ;Sensor Ip Address
+		dat 0 ;Control Signal
+		dat 0, 0, 0, 0, 0 ; Reading A Name
+		dat 0 ;Last reading a high
+		dat 0 ;Last reading a low
+		dat 0, 0, 0, 0, 0 ; Reading B Name
+		dat 0 ;Last reading b high
+		dat 0 ;Last reading b low
+		dat 0 ;Flags
+		
+		dat 0, 0, 0, 0 ;3 Chars + Null, node name
+		dat 0 ;Sensor Ip Address
+		dat 0 ;Control Signal
+		dat 0, 0, 0, 0, 0 ; Reading A Name
+		dat 0 ;Last reading a high
+		dat 0 ;Last reading a low
+		dat 0, 0, 0, 0, 0 ; Reading B Name
+		dat 0 ;Last reading b high
+		dat 0 ;Last reading b low
+		dat 0 ;Flags
+		
+	dat 0, 0, 0, 0 ;3 Chars + Null, network name
+	dat 0 ; Control Ip
+		dat 0, 0, 0, 0 ;3 Chars + Null, node name
+		dat 0 ;Sensor Ip Address
+		dat 0 ;Control Signal
+		dat 0, 0, 0, 0, 0 ; Reading A Name
+		dat 0 ;Last reading a high
+		dat 0 ;Last reading a low
+		dat 0, 0, 0, 0, 0 ; Reading B Name
+		dat 0 ;Last reading b high
+		dat 0 ;Last reading b low
+		dat 0 ;Flags
+		
+		dat 0, 0, 0, 0 ;3 Chars + Null, node name
+		dat 0 ;Sensor Ip Address
+		dat 0 ;Control Signal
+		dat 0, 0, 0, 0, 0 ; Reading A Name
+		dat 0 ;Last reading a high
+		dat 0 ;Last reading a low
+		dat 0, 0, 0, 0, 0 ; Reading B Name
+		dat 0 ;Last reading b high
+		dat 0 ;Last reading b low
+		dat 0 ;Flags
+		
+		dat 0, 0, 0, 0 ;3 Chars + Null, node name
+		dat 0 ;Sensor Ip Address
+		dat 0 ;Control Signal
+		dat 0, 0, 0, 0, 0 ; Reading A Name
+		dat 0 ;Last reading a high
+		dat 0 ;Last reading a low
+		dat 0, 0, 0, 0, 0 ; Reading B Name
+		dat 0 ;Last reading b high
+		dat 0 ;Last reading b low
+		dat 0 ;Flags
+		
+		dat 0, 0, 0, 0 ;3 Chars + Null, node name
+		dat 0 ;Sensor Ip Address
+		dat 0 ;Control Signal
+		dat 0, 0, 0, 0, 0 ; Reading A Name
+		dat 0 ;Last reading a high
+		dat 0 ;Last reading a low
+		dat 0, 0, 0, 0, 0 ; Reading B Name
+		dat 0 ;Last reading b high
+		dat 0 ;Last reading b low
+		dat 0 ;Flags
+		
+		dat 0, 0, 0, 0 ;3 Chars + Null, node name
+		dat 0 ;Sensor Ip Address
+		dat 0 ;Control Signal
+		dat 0, 0, 0, 0, 0 ; Reading A Name
+		dat 0 ;Last reading a high
+		dat 0 ;Last reading a low
+		dat 0, 0, 0, 0, 0 ; Reading B Name
+		dat 0 ;Last reading b high
+		dat 0 ;Last reading b low
+		dat 0 ;Flags
+
+packet_buffer: ;45 Bytes for packet buffer
+	dat 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	dat 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	dat 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	dat 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	dat 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+
+
+packet_ping: ;45 Bytes for packet buffer
+	dat 0, 0, 0, 0x5053, 0, 0, 0, 0, 0, 0
+	dat 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	dat 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	dat 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	dat 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+
+packet_signal: ;45 Bytes for packet buffer
+	dat 0, 0, 0, 0x4253, 0, 0, 0, 0, 0, 0
+	dat 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	dat 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	dat 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	dat 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+
+nextPingTicks:
+	dat 0
+;
+
+;Arg1 is Address of node to ping
+pingNode:
+	_sfBegin(0)
+	_sfArg(a, 0)
+	
+	;Send Ping
+	set c, [a + NODE_OFFSET_SENSOR]
+	_loadBase(y)
+	add y, packet_ping
+	set [y + 1], c
+	set [y + 2], PORT_PING
+	
+	_push y
+	callRelPtr import_nic_send
+	add sp, 1
+	
+	;Send Control Signal
+	_sfArg(a, 0)
+	set c, [a + NODE_OFFSET_FLAGS]
+	and c, NODE_FLAG_ACTIVE
+	ifn c, 0
+		set c, 1
+	set x, [a + NODE_OFFSET_CONTROL]
+	
+	_loadBase(y)
+	add y, packet_signal
+	set [y + 1], x
+	set [y + 2], PORT_SIGNAL_READING
+	set [y + 4], c
+	_push y
+	callRelPtr import_nic_send
+	add sp, 1
+	
+	_sfEnd
+	
+;Arg1: Network Pointer
+;Pings all nodes on a network
+pingNetwork:
+		_sfBegin(0)
+		_push z
+		
+		_sfArg(x, 1)
+		
+		set a, 0
+		set z, 0
+		
+	pingNetwork_next:
+		ife z, NUM_NODES
+			jmpD pingNetwork_end
+		
+		_sfArg(y, 0)
+		add y, NETWORK_OFFSET_NODES
+		
+		set c, z
+		mul c, NODE_SIZE
+		add y, c
+		ife [y + NODE_OFFSET_SENSOR], 0
+			jmpD pingNetwork_skip
+			
+		_push y
+		relCall pingNode
+		add sp, 1
+		
+	pingNetwork_skip:
+		add z, 1
+		jmpU pingNetwork_next
+		
+	pingNetwork_end:
+		_pop z
+		_sfEnd
+		ret	
+
+
+;Pings all nodes on all networks
+pingNetworks:
+		_sfBegin(0)
+		_push z
+		
+		set a, 0
+		set z, 0
+		
+	pingNetworks_next:
+		ife z, NUM_NETWORKS
+			jmpD pingNetworks_end
+		
+		_loadBase(y)
+		add y, networks
+		
+		set c, z
+		mul c, NETWORK_SIZE
+		add y, c
+		
+		_push a
+		
+		_push y
+		relCall pingNetwork
+		add sp, 1
+		
+		set y, a
+		_pop a
+		
+		add z, 1
+		jmpU pingNetworks_next
+		
+	pingNetworks_end:
+		_pop z
+		_sfEnd
+		ret
+	
+
+queryUpdate:
+	queryUpdate_measurementReadings:
+		_loadBase(a)
+		_push a
+		add [sp], packet_buffer
+		_push PORT_MEASUREMENT_READING
+		callRelPtr import_nic_recv
+		add sp, 1
+		_pop c ;Put packet buffer address back into a
+		
+		ife a, 0
+			jmpD queryUpdate_signalReadings
+		
+		ifn [c + 3], 0x4D53 ;Check for protocol header in packet
+			jmpU queryUpdate_measurementReadings
+		
+		_push [c + 9] ;Push lower reading
+		_push [c + 8] ;Push higher reading
+		;Push name
+		_push c
+		add [sp], 4
+		;push sender address
+		_push [c]
+		relCall atmos_parse_measurement_reading
+		add sp, 4
+		
+		jmpU queryUpdate_measurementReadings
+		
+	queryUpdate_signalReadings:
+		_loadBase(a)
+		_push a
+		add [sp], packet_buffer
+		_push PORT_SIGNAL_READING
+		callRelPtr import_nic_recv
+		add sp, 1
+		_pop c ;Put packet buffer address into c
+		
+		ife a, 0
+			jmpD queryUpdate_end
+		
+		ifn [c + 3], 0x4253 ;Check for protocol header in packet
+			jmpU queryUpdate_signalReadings
+	
+		_push [c + 4]
+		_push [c]
+		call atmos_parse_signal_reading
+		add sp, 2
+		
+		jmpU queryUpdate_signalReadings
+		
+	queryUpdate_end:
+		ret
+		
+logicLoop:
+		_loadBase(y)
+		_push [y + access_mutex]
+		callRelPtr import_mutex_lock
+
+		callRelPtr import_clock_getTicks
+		_loadBase(y)
+		ifl a, [y + nextPingTicks]
+			jmpD logicLoop_skipPing
+		
+		add a, PING_INTERVAL_TICKS
+		set [y + nextPingTicks], a
+		
+		relCall pingNetworks
+
+	logicLoop_skipPing:
+	
+		relCall queryUpdate
+		callRelPtr import_mutex_release
+		add sp, 1
+			
+		_threading_endCycle()
+		
+		jmpU logicLoop
+
+main:
+	callRelPtr import_mutex_create
+	_loadBase(c)
+	set [c + access_mutex], a
+	
+	_loadBase(A)
+	
+	SET PUSH, SHELLINSTANCE_SIZE
+	JSR [A + import_memory_allocateMemory]
+	ADD SP, 1
+
+	_loadBase(y)
+	_push y
+	SET PUSH, input_handler
+	ADD [SP], Y
+	SET [Y + shell_instance], A
+	SET PUSH, A
+	JSR [Y + import_shell_createShell]
+	ADD SP, 3
+	
+	_push introMessage
+	relCall writeResponseLine
+	add sp, 1
+	
+	relCall promptCommand
+	
+	_loadBase(y)
+	add y, logicLoop
+	
+	_push 0
+	_push y
+	callRelPtr import_threading_createThread
+	add sp, 2
+	
+	_loadBase(y)
+	set [y + logic_loop_thread], a
+	
+	ret
+	
+signal_handler:
+	set a, 0
+	ifn [sp + 1], SIGNAL_KILL
+		jmp signal_handler_end
+
+	_loadBase(x)
+	_push SHELLINSTANCE_SIZE
+	_push [x + shell_instance]
+	callRelPtr import_shell_destroy
+	callRelPtr import_memory_freeMemory
+	add sp, 2
+	
+	
+	_loadBase(c)
+	_push [c + access_mutex]
+	callRelPtr import_mutex_destroy
+	add sp, 1
+	
+	_loadBase(c)
+	_push [c + logic_loop_thread]
+	callRelPtr import_threading_removeThread
+	add sp, 1
+	
+	set a, SIGNAL_KILL
+	
+	signal_handler_end:
+	ret
+	
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+promptCommand:
+	_push shell_prompt
+	relCall writeResponse
+	add sp, 1
+	ret
+
+;ARG1 Relative Message
+writeResponse:
+	_loadBase(y)
+	_push [sp+1]
+	add [sp], y
+	_push [Y + shell_instance]
+	callRelPtr import_shell_writeString
+	add sp, 2
+	set pc, pop
+	
+;ARG1 Relative Message
+writeResponseLine:
+	_push [sp + 1]
+	relCall writeResponse
+	add sp, 1
+	
+	_loadBase(y)
+	_push [Y + shell_instance]
+	callRelPtr import_shell_newLine
+	add sp, 1
+	ret
+	
+;;A Will be set to base address of callee module
+input_handler:
+	_push a
+	_push [sp + 2]
+	_push [a + shell_instance]
+	JSR [a + import_shell_processInput]
+	add sp, 3
+	
+	ife a, 0
+		ret
+	
+	_push a ; 2nd argument for process command
+	
+	_push 0 ;Replace all spaces with nulls to create null terminated string list
+	_push 0x20 ;Space character
+	_push a
+	callRelPtr import_vfs_string_replace
+	add sp, 3
+	
+	_push a ; First argument for process command
+	relCall processCommand
+	add sp, 2
+	
+	relCall promptCommand
+
+	ret
+	
+;Arg1 number of strings in string list.
+;ARG2 String list of command
+processCommand:
+	_sfBegin(0)
+	_push I
+	_push J
+	_loadBase(I)
+	
+	_push [i + access_mutex]
+	callRelPtr import_mutex_lock
+	add sp, 1
+	
+	
+	set J, I
+	add J, command_table
+	
+	processCommand_next:
+		ife [J], 0
+			jmpD(processCommand_unknown)
+		
+		_sfArg(push, 1)
+		_push J
+		add [sp], 1
+		jsr [I + import_string_compare]
+		add sp, 2
+		
+		ife a, 0
+			jmpD(processCommand_found)
+	
+		_push J
+		add [sp], 1
+		jsr [I + import_string_length]
+		_pop J
+		add J, a
+		add j, 1
+		
+		jmpU(processCommand_next)
+	
+	processCommand_unknown:
+		relCall unknown_command
+	
+	processCommand_end:
+		_loadBase(I)
+		_push [i + access_mutex]
+		callRelPtr import_mutex_release
+		add sp, 1
+
+		_pop J
+		_pop I
+		_sfEnd
+		ret
+		
+	processCommand_found:
+		
+		_sfArg(push, 1)
+		_sfArg(push, 0)
+		add I, [J]
+		jsr I
+		add sp, 2
+		jmpU(processCommand_end)
+
+
+unknown_command_response:
+	dat "Unknown command. Use help cmd.", 0
+unknown_command:
+	_loadBase(x)
+	_push unknown_command_response
+	relCall writeResponseLine
+	add sp, 1
+	ret
+
+cmd_help_response:
+	dat "CMD   Summary                   "
+	dat "ping  Ping sensors / controllers" 
+	dat "anet  Create control network    " 
+	dat "anode Add node to network       " 
+	dat "stat  Query Network Status      " 
+	dat "net   List existing networks    ", 0
+cmd_help:
+	_loadBase(x)
+	_push cmd_help_response
+	relCall writeResponse
+	add sp, 1
+	ret
+
+;Argument 1: Ip Address as C String
+atmos_parseip:
+	_push z
+	_sfBegin(1)
+	
+	;This is the buffer space for the ip address
+	_sfLocalPtr(z, 0)
+	set [z], 0
+	
+	set z, 0
+	atmos_parseip_nextIpComponent:
+	;Get IP Address (first part)
+	ife z, 4
+		jmpD atmos_parseip_nextIpComponent_end
+		
+	_sfLocalPtr(a, 0)
+	shl [a], 4
+	
+	_push 0x2e ;Searching for a .
+	_push z
+	_sfArg(push, 1)
+	callRelPtr import_string_indexOfString
+	add sp, 3
+	
+	_push a
+	callRelPtr import_string_stoi
+	add sp, 1
+	
+	ifg a, 0xF
+		set a, 0
+	
+	_sfLocalPtr(c, 0)
+	bor [c], a
+	add z, 1
+	jmpU atmos_parseip_nextIpComponent
+	
+	atmos_parseip_nextIpComponent_end:
+	_sfLocal(a, 0)
+	
+	_sfEnd
+	_pop z
+	ret
+
+;Returns pointer to free network, or null otherwise
+atmos_find_free_network:
+	_sfBegin(0)
+	_push z
+	
+	set a, 0
+	set z, 0
+	
+	atmos_find_free_network_next:
+	ife z, NUM_NETWORKS
+		jmpD atmos_find_free_network_none
+	
+	_loadBase(y)
+	add y, networks
+	
+	set c, z
+	mul c, NETWORK_SIZE
+	add y, c
+	ife [y], 0
+		jmpD atmos_find_free_network_found
+	
+	add z, 1
+	jmpU atmos_find_free_network_next
+	
+	atmos_find_free_network_found:
+	set a, y
+	jmpD atmos_find_free_network_end
+	
+	atmos_find_free_network_none:
+	set a, 0
+	
+	atmos_find_free_network_end:
+	_pop z
+	_sfEnd
+	ret
+
+;Returns pointer to free node in a network, or null otherwise
+;Argumnet 1: Pointer to network
+atmos_find_free_node:
+	_sfBegin(0)
+	_push z
+	
+	set a, 0
+	set z, 0
+	
+	atmos_find_free_node_next:
+	ife z, NUM_NODES
+		jmpD atmos_find_free_node_none
+	
+	_sfArg(y, 0)
+	add y, NETWORK_OFFSET_NODES
+	
+	set c, z
+	mul c, NODE_SIZE
+	add y, c
+	ife [y], 0
+		jmpD atmos_find_free_node_found
+	
+	add z, 1
+	jmpU atmos_find_free_node_next
+	
+	atmos_find_free_node_found:
+	set a, y
+	jmpD atmos_find_free_node_end
+	
+	atmos_find_free_node_none:
+	set a, 0
+	
+	atmos_find_free_node_end:
+	_pop z
+	_sfEnd
+	ret
+
+atmos_print_value_reading_name:
+	dat "   "
+atmos_print_value_reading_name_value:
+	dat 0, 0, 0, 0, 0
+atmos_print_value_reading:
+	dat ": "
+atmos_print_value_reading_value:
+	dat 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	
+;Argument 1 - Pointer to node value structure
+atmos_print_value:
+	_sfBegin(0)
+	_sfArg(a, 0)
+	
+	ife [a], 0
+		jmpD atmos_print_value_end
+		
+	_push NODE_READING_NAME_LENGTH
+	_push a 
+	_push atmos_print_value_reading_name_value
+	callRelPtr import_memory_copyMemory
+	add sp, 3
+	
+	_push atmos_print_value_reading_name
+	relCall writeResponse
+	add sp, 1
+	
+	_sfArg(a, 0)
+	_push [a + NODE_READING_OFFSET_HIGH_VALUE]
+	_push atmos_print_value_reading_value
+	callRelPtr import_string_itoa
+	add sp, 2
+	
+	set [a], '.'
+	add a, 1
+	
+	_sfArg(c, 0)
+	_push [c + NODE_READING_OFFSET_LOW_VALUE]
+	_push a
+	callRelPtr import_string_itoa
+	add sp, 2
+	
+	_push atmos_print_value_reading
+	relCall writeResponseLine
+	add sp, 1
+	
+		
+	atmos_print_value_end:
+	_sfEnd
+	ret
+
+;Argument 1: Pointer to network to search in
+;Argument 2: Sensor IP Address of node to find
+;Returns a pointer to the node, or null if not found
+atmos_find_node_in_network:
+		_sfBegin(0)
+		_push z
+		
+		_sfArg(x, 1)
+		
+		set a, 0
+		set z, 0
+		
+	atmos_find_node_in_network_next:
+		ife z, NUM_NODES
+			jmpD atmos_find_node_in_network_none
+		
+		_sfArg(y, 0)
+		add y, NETWORK_OFFSET_NODES
+		
+		set c, z
+		mul c, NODE_SIZE
+		add y, c
+		add y, NODE_OFFSET_SENSOR
+		ife [y], x
+			jmpD atmos_find_node_in_network_found
+		
+		add z, 1
+		jmpU atmos_find_node_in_network_next
+		
+	atmos_find_node_in_network_found:
+		set a, y
+		sub a, NODE_OFFSET_SENSOR
+		jmpD atmos_find_node_in_network_end
+		
+	atmos_find_node_in_network_none:
+		set a, 0
+		
+	atmos_find_node_in_network_end:
+		_pop z
+		_sfEnd
+		ret	
+		
+;Argument 1: IP Address of node to find
+;Returns a pointer to the node, or null if not found
+atmos_find_node:
+		_sfBegin(0)
+		_push z
+		
+		set a, 0
+		set z, 0
+		
+	atmos_find_node_next:
+		ife z, NUM_NETWORKS
+			jmpD atmos_find_node_none
+		
+		_loadBase(y)
+		add y, networks
+		
+		set c, z
+		mul c, NETWORK_SIZE
+		add y, c
+		
+		_push a
+		
+		_sfArg(push, 0)
+		_push y
+		relCall atmos_find_node_in_network
+		add sp, 2
+		
+		set y, a
+		_pop a
+		
+		ifn y, 0
+			jmpD atmos_find_node_found
+		
+		add z, 1
+		jmpU atmos_find_node_next
+		
+	atmos_find_node_found:
+		set a, y
+		jmpD atmos_find_node_end
+		
+	atmos_find_node_none:
+		set a, 0
+		
+	atmos_find_node_end:
+		_pop z
+		_sfEnd
+		ret
+
+;Argument 1 : Ip Address of sensor
+;Argument 2 : Pointer to reading name
+;Argument 3 : Reading High
+;Argument 4 : Reading Low
+atmos_parse_measurement_reading:
+		_sfBegin(0)
+		
+		_sfArg(push, 0)
+		relCall atmos_find_node
+		add sp, 1
+		
+		ife a, 0
+			jmpD atmos_parse_measurement_reading_notFound
+	
+		set x, a
+		add x, NODE_OFFSET_READINGS
+	
+		set c, [a + NODE_OFFSET_FLAGS]
+		
+		xor [a + NODE_OFFSET_FLAGS], NODE_FLAG_TOGGLE_READING
+		and c, NODE_FLAG_TOGGLE_READING
+		
+		ifn c, 0
+			add x, NODE_READING_SIZE
+		
+		
+		_push x
+		
+		_push NODE_READING_NAME_LENGTH
+		_sfArg(push, 1) ;Push reading name
+		_push x
+		callRelPtr import_memory_copyMemory
+		add sp, 3
+		
+		_pop x
+		
+		_sfArg(a, 2) ;reading high
+		set [x + NODE_READING_OFFSET_HIGH_VALUE], a
+		_sfArg(a, 3) ;reading low
+		set [x + NODE_READING_OFFSET_LOW_VALUE], a
+		
+	atmos_parse_measurement_reading_notFound:
+		_sfEnd
+		ret
+		
+;Argument 1 : Ip Address of sensor
+;Argument 2 : Signal
+atmos_parse_signal_reading:
+		_sfBegin(0)
+		
+		_sfArg(push, 0)
+		relCall atmos_find_node
+		add sp, 1
+		
+		ife a, 0
+			jmpD atmos_parse_signal_reading_notFound
+	
+		_sfArg(c, 1)
+		
+		bor [a + NODE_OFFSET_FLAGS], NODE_FLAG_ACTIVE
+		
+		ifn c, 0
+			jmpD atmos_parse_signal_reading_notFound
+			
+		set c, NODE_FLAG_ACTIVE
+		xor c, 0xFFFF
+		and [a + NODE_OFFSET_FLAGS], c
+		
+	atmos_parse_signal_reading_notFound:
+		_sfEnd
+		ret
+
+;Argument 1: Name of network
+;Returns pointer to network, or null otherwise
+atmos_find_network:
+	_sfBegin(0)
+	_push z
+	
+	set a, 0
+	set z, 0
+	
+	atmos_find_network_next:
+	ife z, NUM_NETWORKS
+		jmpD atmos_find_network_none
+	
+	_loadBase(y)
+	add y, networks
+	
+	set c, z
+	mul c, NETWORK_SIZE
+	add y, c
+	
+	_push y
+	_sfArg(push, 0)
+	callRelPtr import_string_compare
+	add sp, 1
+	_pop y
+	
+	ife a, 0
+		jmpD atmos_find_network_found
+	
+	add z, 1
+	jmpU atmos_find_network_next
+	
+	atmos_find_network_found:
+	set a, y
+	jmpD atmos_find_network_end
+	
+	atmos_find_network_none:
+	set a, 0
+	
+	atmos_find_network_end:
+	_pop z
+	_sfEnd
+	ret
+
+
+cmd_anet_noParameters_message:
+	dat "anet <network> <ctrl-ip>", 0
+	
+cmd_anet_noFreeNetworks_message:
+	dat "Max networks reached.", 0
+	
+cmd_anet:
+	_sfBegin(0)
+	_push z
+	
+	_sfArg(a, 0)
+	
+	ifn a, 2
+		jmpD cmd_anet_noParameters
+	
+	relCall atmos_find_free_network
+	ife a, 0
+		jmpD cmd_anet_noFreeNetworks
+	
+	set z, a
+	
+	;Get network name string
+	_push 0 ; Space
+	_push 1
+	_sfArg(push, 1)
+	callRelPtr import_string_indexOfString
+	add sp, 3
+	;Do something with network name
+	
+	_push NODE_NAME_LENGTH
+	_push a
+	_push z
+	add [sp], NETWORK_OFFSET_NAME
+	callRelPtr import_memory_copyMemory
+	add sp, 3
+	
+	;Get IP Address
+	_push 0 ; Space
+	_push 2
+	_sfArg(push, 1)
+	callRelPtr import_string_indexOfString
+	add sp, 3
+	
+	_push a
+	relCall atmos_parseip
+	add sp, 1
+	set [z + NETWORK_OFFSET_CONTROL], a
+	
+	cmd_anet_end:
+	_pop z
+	_sfEnd
+	ret
+	
+	
+	cmd_anet_noFreeNetworks:
+	
+	_push cmd_anet_noFreeNetworks_message
+	relCall writeResponseLine
+	add sp, 1
+	jmpU cmd_anet_end
+	
+	cmd_anet_noParameters:
+	
+	_push cmd_anet_noParameters_message
+	relCall writeResponseLine
+	add sp, 1
+	jmpU cmd_anet_end
+
+cmd_anode_noParameters_message:
+	dat "anode net node sensor ctrl", 0
+	
+cmd_anode_noNetwork_message:
+	dat "Network doesn't exist.", 0
+
+cmd_anode_noNodes_message:
+	dat "Max nodes reached", 0
+
+cmd_anode:
+	_sfBegin(0)
+	_push z
+	
+	_sfArg(a, 0)
+	
+	ifn a, 4
+		jmpD cmd_anode_noParameters
+	
+	;Get network name string
+	_push 0 ; Space
+	_push 1
+	_sfArg(push, 1)
+	callRelPtr import_string_indexOfString
+	add sp, 3
+	
+	_push a
+	relCall atmos_find_network
+	add sp, 1
+	ife a, 0
+		jmpD cmd_anode_noNetwork
+	
+	;Find a free node in that network
+	_push a
+	relCall atmos_find_free_node
+	add sp, 1
+	set z, a
+	ife z, 0
+		jmpD cmd_anode_noNodes
+	
+	;Get node name string
+	_push 0 ; Space
+	_push 2
+	_sfArg(push, 1)
+	callRelPtr import_string_indexOfString
+	add sp, 3
+	
+	_push 3
+	_push a
+	_push z
+	add [sp], NODE_OFFSET_NAME
+	callRelPtr import_memory_copyMemory
+	add sp, 3
+	
+	;Get node sensor ip
+	_push 0 ; Space
+	_push 3
+	_sfArg(push, 1)
+	callRelPtr import_string_indexOfString
+	add sp, 3
+	
+	_push a
+	relCall atmos_parseip
+	add sp, 1
+	set [z + NODE_OFFSET_SENSOR], a
+	
+	;Get control ip
+	_push 0 ; Space
+	_push 4
+	_sfArg(push, 1)
+	callRelPtr import_string_indexOfString
+	add sp, 3
+	
+	_push a
+	relCall atmos_parseip
+	add sp, 1
+	set [z + NODE_OFFSET_CONTROL], a
+	
+	
+	cmd_anode_end:
+	_pop z
+	_sfEnd
+	ret
+	
+	
+	cmd_anode_noNetwork:
+	
+	_push cmd_anode_noNetwork_message
+	relCall writeResponseLine
+	add sp, 1
+	jmpU cmd_anode_end
+	
+	cmd_anode_noNodes:
+	
+	_push cmd_anode_noNodes_message
+	relCall writeResponseLine
+	add sp, 1
+	jmpU cmd_anode_end
+	
+	cmd_anode_noParameters:
+	
+	_push cmd_anode_noParameters_message
+	relCall writeResponseLine
+	add sp, 1
+	jmpU cmd_anode_end
+
+
+cmd_net:
+	_sfBegin(0)
+	_push z
+	
+	set z, 0
+	
+	cmd_net_next:
+	set a, NETWORK_SIZE
+	mul a, z
+	_loadBase(c)
+	add a, c
+	add a, networks
+	
+	ife [a], 0
+		jmpD cmd_net_skip
+		
+	_push a
+	relCall writeResponseLine
+	add sp, 1
+	
+	cmd_net_skip:
+	add z, 1
+	ife z,  NUM_NETWORKS
+		jmpD cmd_net_end
+		
+	jmpU cmd_net_next
+	
+	
+	cmd_net_end:
+	_pop z
+	_sfEnd
+	ret
+	
+
+cmd_stat_noParameters_message:
+	dat "stat <network>", 0
+	
+cmd_stat_noNetwork_message:
+	dat "Network doesn't exist.", 0
+
+cmd_stat_active_message:
+	dat " - Active", 0
+cmd_stat_inactive_message:
+	dat " - Inactive", 0
+cmd_stat:
+	_sfBegin(0)
+	_push z
+	_push b
+	_sfArg(a, 0)
+	
+	ifn a, 1
+		jmpD cmd_stat_noParameters
+	
+	;Get network name string
+	_push 0 ; Space
+	_push 1
+	_sfArg(push, 1)
+	callRelPtr import_string_indexOfString
+	add sp, 3
+	
+	_push a
+	relCall atmos_find_network
+	add sp, 1
+	ife a, 0
+		jmpD cmd_stat_noNetwork
+	
+	set b, a
+	add b, NETWORK_OFFSET_NODES
+	set z, 0
+	
+	cmd_stat_next:
+	set a, NODE_SIZE
+	mul a, z
+	add a, b
+	
+	ife [a], 0
+		jmpD cmd_stat_skip
+	
+	set c, [a + NODE_OFFSET_FLAGS]
+	and c, NODE_FLAG_ACTIVE
+	ifn c, 0
+		set c, cmd_stat_active_message
+	ife c, 0
+		set c, cmd_stat_inactive_message
+	
+	_push c
+	;Write node name
+	_push a
+	relCall writeResponse
+	_pop a
+	_pop c
+	
+	_push a
+	
+	_push c
+	relCall writeResponseLine
+	add sp, 1
+	
+	_pop a
+	
+	_push a
+	add [sp], NODE_OFFSET_READINGS
+	relCall atmos_print_value
+	add [sp], NODE_READING_SIZE
+	relCall atmos_print_value
+	add sp, 1
+	
+	cmd_stat_skip:
+	add z, 1
+	ife z,  NUM_NODES
+		jmpD cmd_stat_end
+		
+	jmpU cmd_stat_next
+	
+	
+	cmd_stat_end:
+	_pop b
+	_pop z
+	_sfEnd
+	ret
+
+
+	cmd_stat_noNetwork:
+	
+	_push cmd_stat_noNetwork_message
+	relCall writeResponseLine
+	add sp, 1
+	jmpU cmd_stat_end
+	
+	cmd_stat_noParameters:
+	
+	_push cmd_stat_noParameters_message
+	relCall writeResponseLine
+	add sp, 1
+	jmpU cmd_stat_end
+	
+cmd_test_name:
+	dat "Test", 0
+	
+cmd_ping:
+	_loadBase(y)
+	set [y + nextPingTicks], 0
+	ret
+
+atmos_image_end:

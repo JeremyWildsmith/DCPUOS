@@ -102,6 +102,7 @@ clock_init:
 clock_getTicks:
 		set a, CLOCK_INTERRUPTCODE_GETTICKS
 		hwi [clock_deviceIndex]
+		set a, c
 		ret
 
 ;;

@@ -102,7 +102,7 @@ kernel_export_table:
 	dat vfs_fRead
 	dat vfs_fEnum
 	
-	dat clock_getTicks
+	dat clock_getTicks						;40
 	
 	;The string APIs are for INTERNAL USE ONLY and SHOULD NOT be exported, but for sandboxing
 	;they are temporarily accessible (other applications should be using the libc implementation.)
@@ -120,6 +120,7 @@ kernel_export_table:
 	
 	dat string_indexOfString			;49
 	dat string_stoi						;50
+	dat string_itoa						;51
 	
 	dat 0xFFFF
 	
@@ -200,6 +201,11 @@ kernel_initThreadEp:
 		call peLoader_loadImage
 		add sp, 2
 		
+		_push atmos_image_end - atmos_image_header
+		_sfLocalPtr(push, VFS_FILE_OFFSET_LASTMEMBER)   ; Push pointer to parent directory file descriptor.
+		_push atmos_image_header
+		call peLoader_initImage
+		add sp, 3
 kernel_serviceLoop:
 		call keyboard_poll
 		call signal_poll
