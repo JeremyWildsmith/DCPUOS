@@ -52,6 +52,8 @@ import_peLoader_unloadImage:
 	dat 48
 import_signal_dispatch:
 	dat 47
+import_userInterfaceState_toggleToPid:
+	dat 52
 	DAT 0xFFFF
 	dat 0x7874, 0x6974, 0x006f, 0, 0, 0, 0, 0, 0, 0 ;cstring of 'txtio'
 import_shell_createShell:
@@ -111,6 +113,9 @@ command_table:
 	
 	dat cmd_exit
 	dat "exit", 0
+	
+	dat cmd_select
+	dat "select", 0
 	
 	dat 0
 	
@@ -587,7 +592,89 @@ cmd_kill:
 	relCall writeResponseLine
 	add sp, 1
 	jmpU cmd_kill_end
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;
+
+cmd_select_missingArgument_message:
+	dat "Must specify process.", 0
 	
+cmd_select_noProcess_message:
+	dat "Process does not exist.", 0
+	
+cmd_select_name_buffer:
+	dat 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	
+cmd_select:
+	_sfBegin(0)
+	_push z
+	
+	_sfArg(a, 0)
+	ife a, 0
+		jmpD cmd_select_missingArgument
+
+	relLoadLabel(z, import_peLoader_root)
+	
+	set z, [z]
+	
+	cmd_select_nextProcess:
+	
+	ife [z], 0xFFFF
+		jmpD cmd_select_noProcess
+		
+	set z, [z]
+	
+	_push 10
+	_push z
+	add [sp], PEIMAGE_OFFSET_NAME
+	relPushLabel cmd_select_name_buffer
+	callRelPtr import_string_singlebyteToWideChar
+	add sp, 3
+	
+	_sfArg(push, 1)
+	add [sp], 7 ;Offset 5 = next string list.
+	relPushLabel cmd_select_name_buffer
+	callRelPtr import_string_compare
+	add sp, 2
+	
+	ife a, 0
+		jmpD cmd_select_selectProcess
+		
+	add z, PEIMAGE_OFFSET_NEXT
+	
+	jmpU cmd_select_nextProcess
+	
+	
+	cmd_select_end:
+	_pop z
+	_sfEnd
+	ret
+	
+	cmd_select_selectProcess:
+	
+	_push z
+	callRelPtr import_userInterfaceState_toggleToPid
+	add sp, 1
+	
+	jmpU cmd_select_end
+	
+
+	cmd_select_noProcess:
+	
+	_push cmd_select_noProcess_message
+	relCall writeResponseLine
+	add sp, 1
+	jmpU cmd_select_end
+	
+	cmd_select_missingArgument:
+			
+	_push cmd_select_missingArgument_message
+	relCall writeResponseLine
+	add sp, 1
+	jmpU cmd_select_end
+
+;;;;;;;;;;;;;;;;;;;;;;;;
+
 cmd_exit:
 	_loadBase(x)
 	_push SIGNAL_KILL

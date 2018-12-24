@@ -39,7 +39,7 @@
 	DAT hmdddssi_header_import_table - hmdddssi_header
 	
 :hmdddssi_header_rva_export
-	DAT ramddssi_header_export_table - hmdddssi_header
+	DAT hmdddssi_header_export_table - hmdddssi_header
 	
 :hmdddssi_header_rva_relocations
 	DAT 0
@@ -52,24 +52,6 @@
 	
 hmdddssi_header_import_table:
 	dat 0x656b, 0x6e72, 0x6c65, 0, 0, 0, 0, 0, 0, 0 ; cstring of 'kernel'
-hmdddssi_import_device_allocateDevice:
-	DAT 21
-hmdddssi_import_peLoader_unloadImage:
-	dat 48
-hmdddssi_import_mutex_create:
-	dat 16
-hmdddssi_import_mutex_destroy:
-	dat 17
-hmdddssi_import_mutex_lock:
-	dat 18
-hmdddssi_import_mutex_release:
-	dat 19
-hmdddssi_import_mutex_wait:
-	dat 20
-hmdddssi_import_threading_free:
-	dat 15
-hmdddssi_import_memory_copy:
-	dat 3
 	DAT 0xFFFF
 	DAT 0xFFFF
 	
@@ -77,7 +59,7 @@ hmdddssi_import_memory_copy:
 	DAT hmdddssi_getFlags
 	DAT hmdddssi_getSectorSize
 	DAT hmdddssi_getVolumeSize
-	DAT hmdddssi_read
+	DAT hmdddssi_read_unalignedProtected
 	DAT hmdddssi_write
 	DAT 0xFFFF
 
@@ -92,15 +74,14 @@ hmdddssi_import_memory_copy:
 ;;
 hmdddssi_init:
 		_push 0
-		_push 0x4fd5
-		_push 0x24c5
-		CallRelPtr hmdddssi_import_device_allocateDevice
+		_push 0x74fa
+		_push 0x4cae
+		call device_allocateDevice
 		add sp, 3
 		set [hmdddssi_device], a
 		
-		CallRelPtr hmdddssi_import_mutex_create
-		relLoadLabel y, hmdddssi_interfaceAccess_mutex
-		set [y], a
+		call mutex_create
+		set [hmdddssi_interfaceAccess_mutex], a
 		
 		ret
 
@@ -110,13 +91,13 @@ hmdddssi_signal_handler:
 
 	relLoadLabel y, hmdddssi_interfaceAccess_mutex
 	_push [y]
-	CallRelPtr hmdddssi_import_mutex_lock ; Lock first, let any current tasks finish executing...
-	CallRelPtr hmdddssi_import_mutex_destroy
+	call mutex_lock ; Lock first, let any current tasks finish executing...
+	call mutex_destroy
 	add sp, 1
 
 	_loadBase(x)
 	_push x
-	callRelPtr hmdddssi_import_peLoader_unloadImage
+	call peLoader_unloadImage
 	add sp, 1
 	
 	hmdddssi_signal_handler_end:
@@ -132,13 +113,13 @@ hmdddssi_waitNotBusy:
 	hmdddssi_waitNotBusy_loop:
 		
 		set a, HMD_INTERRUPT_POLL
-		relLoadLabel y, hmdddssi_device
+		set y, [hmdddssi_device]
 		int [y]
 		
 		ifn b, HMD_STATE_BUSY
 			jmpD hmdddssi_waitNotBusy_end
 		
-		callRelPtr hmdddssi_import_threading_free
+		call threading_free
 		jmpU hmdddssi_waitNotBusy_loop
 		
 	hmdddssi_waitNotBusy_end:
@@ -172,6 +153,79 @@ hmdddssi_getVolumeSize:
 		set a, VOLUME_SIZE_SECTORS
 		ret
 
+
+
+
+;;
+;\brief Reads a specified region of data from storage volume.
+;\note Uses the cdecl calling convention \ref cdecl
+;\note Size of destination buffer must at be evenly divisible by one sector.
+;\param wSectorPos Position to start read in units of sectors
+;\param wOffset Offset in words from the origin of wSectorPos
+;\param pDest A pointer to the destination of the read data
+;\param wSize Size of the buffer in words. Must be evenly divisble by one sector.
+;\return 0 on fail, any other value on success.
+;;
+hmdddssi_read_unalignedProtected:
+		_sfBegin(0)
+		
+		_sfArg(a, 3)
+		div a, SECTOR_SIZE_WORDS
+		ife ex, 0
+			jmpD hmdddssi_read_unalignedProtected_aligned
+		
+		add a, 1
+		
+		mul a, SECTOR_SIZE_WORDS
+		
+		_push a
+		call memory_allocate
+		_pop c ;Save allocation size in C
+		
+		ife a, 0xFFFF
+			jmp hmdddssi_read_unalignedProtected_fail
+			
+		_push c
+		_push a
+		_sfArg(push, 1)
+		_sfArg(push, 0)
+		call hmdddssi_read
+		add sp, 4
+		
+		_sfArg(c, 3)
+		ifl a, c
+			set c, a
+		
+		_push a
+		_push x
+		_sfArg(push, 2)
+		call memory_copy
+		add sp, 1
+		
+		;Address of memory allocation is still on stack
+		call memory_free
+		add sp, 1
+		
+		_pop a ; The number of bytes read
+		
+		jmp hmdddssi_read_unalignedProtected_end
+		
+	hmdddssi_read_unalignedProtected_aligned:
+		_sfArg(push, 3)
+		_sfArg(push, 2)
+		_sfArg(push, 1)
+		_sfArg(push, 0)
+		call hmdddssi_read
+		add sp, 4
+		
+	hmdddssi_read_unalignedProtected_end:
+		_sfEnd
+		ret
+	
+	hmdddssi_read_unalignedProtected_fail:
+		set a, 0
+		jmp hmdddssi_read_unalignedProtected_end
+
 ;;
 ;\brief Reads a specified region of data from storage volume.
 ;\note Uses the cdecl calling convention \ref cdecl
@@ -190,9 +244,8 @@ hmdddssi_read:
 		_push j
 		_push i
 		
-		relLoadLabel y, hmdddssi_interfaceAccess_mutex
-		_push [y]
-		CallRelPtr hmdddssi_import_mutex_lock
+		_push [hmdddssi_interfaceAccess_mutex]
+		call mutex_lock
 		;Keep mutex uid on the stack, since we use it when we call mutex free before returning.
 		
 		;Calculate start sector, place result in i.
@@ -231,7 +284,7 @@ hmdddssi_read:
 			ifn z, 0 ; If first sector, read entire sector into A, then we will copy it up to clip off date before the origin.
 				sub y, b ; otherwise, offset the destination to take into account only part of the data read from the first sector was needed due to the read offset.
 			
-			relLoadLabel b, hmdddssi_device
+			set b, [hmdddssi_device]
 			set x, i
 			int [b] ;Read sector x into address y
 			set c, b
@@ -239,7 +292,7 @@ hmdddssi_read:
 			ifn c, HMD_START_READ_SUCCESSFUL ;If read failed
 				jmpD hmdddssi_read_fail
 			
-			relCall hmdddssi_waitNotBusy
+			call hmdddssi_waitNotBusy
 			
 			ifn a, HMD_ERROR_NONE
 				jmpD hmdddssi_read_fail
@@ -256,7 +309,7 @@ hmdddssi_read:
 			_sfArg(push, 2)
 			add [sp], c ; Argument source = start address of where bytes are needed
 			_sfArg(push, 2) ; Destination = start of buffer
-			CallRelPtr hmdddssi_import_memory_copy
+			call memory_copy
 			add sp, 3
 			
 		hmddssi_read_sector_skipOffsetBuffer:
@@ -265,7 +318,7 @@ hmdddssi_read:
 			ifn z, j
 				jmpU hmdddssi_read_sector
 			
-		CallRelPtr hmdddssi_import_mutex_release
+		call mutex_release
 		add sp, 1
 		
 		set a, 1
@@ -277,7 +330,7 @@ hmdddssi_read:
 		ret
 		
 	hmdddssi_read_fail:
-		CallRelPtr hmdddssi_import_mutex_release ; Mutex id is already pushed on the stack from the start of the function.
+		call mutex_release ; Mutex id is already pushed on the stack from the start of the function.
 		add sp, 1
 		
 		set a, 0
@@ -295,15 +348,15 @@ hmdddssi_read:
 hmdddssi_write:
 		_sfBegin(0)
 		
-		relLoadLabel y, hmdddssi_interfaceAccess_mutex
+		set y, [hmdddssi_interfaceAccess_mutex]
 		_push [y]
-		CallRelPtr hmdddssi_import_mutex_lock
+		call mutex_lock
 		
 		
 		;Do IO here
 		
 		
-		CallRelPtr hmdddssi_import_mutex_release
+		call mutex_release
 		add sp, 1
 
 		_sfEnd()

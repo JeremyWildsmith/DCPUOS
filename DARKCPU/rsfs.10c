@@ -229,8 +229,13 @@ rsfs_fRead:
 		
 		_sfArg(a, 0)
 		set c, [a + VFS_FILE_OFFSET_CURSOR]
+		set x, [a + VFS_FILE_OFFSET_LENGTH]
 		
-		ifl c, [a + VFS_FILE_OFFSET_LENGTH]
+		div x, 2
+		ifn ex, 0
+			add x, 1
+			
+		ifl c, x
 			jmp rsfs_fRead_readFile
 		
 		bor [a + VFS_FILE_OFFSET_FILEFLAGS], VFS_FILE_FILEFLAGS_EOF
@@ -243,14 +248,30 @@ rsfs_fRead:
 	rsfs_fRead_readFile:
 		add c, [a + VFS_FILE_OFFSET_FILEIDLO]
 		
-		_sfArgAdd([a + VFS_FILE_OFFSET_CURSOR], 2) ;advance cursor number of words read.
-		
 		_sfArg(push, 2)
+		
+		set x, [a + VFS_FILE_OFFSET_LENGTH]
+		_push [a + VFS_FILE_OFFSET_CURSOR]
+		mul [sp], 2
+		sub x, pop
+		ifl x, [sp]
+			set [sp], x
+		
+		set x, [sp]
+		div x, 2
+		ifn ex, 0 
+			add x, 1
+			
+		add [a + VFS_FILE_OFFSET_CURSOR], x
+		_pop x
+		
+		_push x
 		_sfArg(push, 1)
 		_push c
 		_push 0
 		call [rsfs_ddssi_read_media]
-		add sp, 4
+		add sp, 3
+		_pop a
 		
 		jmp rsfs_fRead_end
 		

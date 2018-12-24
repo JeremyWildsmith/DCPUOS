@@ -136,6 +136,31 @@ userInterfaceState_toggleState:
 userInterfaceState_toggleState_noEntries:
 	SET PC, POP
 
+;ARG1: Pid to activate state of
+userInterfaceState_toggleToPid:
+		_push [sp+1]
+		_push [userInterfaceState_activeState]
+		
+	userInterfaceState_toggleToPid_toggleAndCheck:
+		call userInterfaceState_toggleState
+		
+		;[SP] = start state
+		;[SP+1] = search pid
+		
+		ife [userInterfaceState_activeState], [sp] ;Looped back to same state we started at
+			jmp userInterfaceState_toggleToPid_end
+		
+		set c, [userInterfaceState_activeState]
+		ife [c + USERINTERFACESTATE_OFFSET_PARENTPID], [sp + 1]
+			jmp userInterfaceState_toggleToPid_end
+		
+		jmp userInterfaceState_toggleToPid_toggleAndCheck
+	
+	userInterfaceState_toggleToPid_end:
+		add sp, 2
+		ret
+		
+
 ;cdecl
 ;ARG1 is pointer to userInterfaceState struct whos video memory is being requested.
 userInterfaceState_getVram:

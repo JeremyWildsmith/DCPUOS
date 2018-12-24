@@ -122,6 +122,8 @@ kernel_export_table:
 	dat string_stoi						;50
 	dat string_itoa						;51
 	
+	dat userInterfaceState_toggleToPid	;52
+	
 	dat 0xFFFF
 	
 ;;
@@ -131,6 +133,10 @@ kernel_export_table:
 kernel_sBootstrapName:
 	;dat 0x6f62, 0x746f, 0x7473, 0x6172, 0x0070 ;cstring of 'bootstrap'
 	DAT 0x6574, 0x6D72, 0x6e69, 0x6c61, 0
+	
+kernel_sConfigName:
+	;dat 0x6f62, 0x746f, 0x7473, 0x6172, 0x0070 ;cstring of 'bootcfg'
+	DAT 0x6f62, 0x746f, 0x6663, 0x0067, 0
 
 ;;
 ;\call nakedcall
@@ -155,7 +161,6 @@ kernel_main:
 
 		call device_init					;Initlize device manager
 		call userInterfaceState_init
-
 	
 		;Initilize keyboard, clock and interrupt handler modules
 		call keyboard_init
@@ -196,16 +201,37 @@ kernel_initThreadEp:
 		ife a, 0								 		;Throw an error, bootstrap was not found
 			int INTERRUPT_MESSAGE_KERNELERROR
 		
-		_sfLocalPtr(push, VFS_FILE_OFFSET_LASTMEMBER)   ; Push pointer to parent directory file descriptor.
-		_sfLocalPtr(push, VFS_FILE_OFFSET_LASTMEMBER + VFS_FILE_SIZE) ; Push pointer to bootstrap file descriptor.
-		call peLoader_loadImage
-		add sp, 2
 		
 		_push atmos_image_end - atmos_image_header
 		_sfLocalPtr(push, VFS_FILE_OFFSET_LASTMEMBER)   ; Push pointer to parent directory file descriptor.
 		_push atmos_image_header
 		call peLoader_initImage
 		add sp, 3
+		
+		_sfLocalPtr(push, VFS_FILE_OFFSET_LASTMEMBER)   ; Push pointer to parent directory file descriptor.
+		_sfLocalPtr(push, VFS_FILE_OFFSET_LASTMEMBER + VFS_FILE_SIZE) ; Push pointer to bootstrap file descriptor.
+		call peLoader_loadImage
+		add sp, 2
+		
+		;Give kernel some time to initialize
+		call clock_getTicks
+		add a, 200
+		_push a
+		
+	kernel_check_doInit:
+		_threading_endCycle()
+		
+		call clock_getTicks
+		ifl a, [sp]
+			jmp kernel_check_doInit
+	
+	add sp, 1
+	
+	call kernel_emulateConfig
+	
+	call keyboard_clearBuffer
+	
+		
 kernel_serviceLoop:
 		call keyboard_poll
 		call signal_poll
@@ -213,6 +239,111 @@ kernel_serviceLoop:
 		jmp kernel_serviceLoop
 		ret
 
+
+kernel_emulate_readBuffer:
+	dat 0, 0, 0, 0, 0
+	
+kernel_emulate_readBuffer_wide:
+	dat 0, 0, 0, 0, 0, 0, 0, 0, 0
+
+;Arg1 is string to emulate, wide character
+;Arg2 is the string length
+kernel_emulateInput:
+		_sfBegin(0)
+		_push z
+		_push i
+		_push j
+		_sfArg(push, 1)
+		
+		set z, 0
+		set j, 0
+		_sfArg(i, 0)
+	
+	kernel_emulateInput_em:
+		ife j, [sp]
+			jmp kernel_emulateInput_end
+		
+		sti push, [i]
+		
+		ife [sp], 0xA
+			jmp kernel_emulateInput_em_enter
+		
+		ife [sp], 0xD
+			jmp kernel_emulateInput_em_enter
+	
+		set z, 0
+		jmp kernel_emulateInput_em_notEnter
+	kernel_emulateInput_em_enter:
+		ife z, 1
+			jmp kernel_emulateInput_em_enter_skip
+		
+		set z, 1
+		set [sp], 0x11 ;Constant for enter
+		jmp kernel_emulateInput_em_notEnter
+		
+	kernel_emulateInput_em_enter_skip:
+		add sp, 1
+		jmp kernel_emulateInput_em
+		
+	kernel_emulateInput_em_notEnter:
+		
+		call keyboard_emulate
+		add sp, 1
+		_threading_endCycle()
+		
+		jmp kernel_emulateInput_em
+	kernel_emulateInput_end:
+		add sp, 1
+		_pop j
+		_pop i
+		_pop z
+		_sfEnd
+		ret
+
+kernel_emulateConfig:
+		_sfBegin(VFS_FILE_SIZE * 2)		;Allocate enough space for file descriptor
+		
+		_sfLocalPtr(push, VFS_FILE_OFFSET_LASTMEMBER) 	; Push pointer to bootstrap descriptor onto stack.
+		_push 0
+		call vfs_fGetRoot
+		add sp, 2
+		
+		_sfLocalPtr(push, VFS_FILE_OFFSET_LASTMEMBER + VFS_FILE_SIZE) ; Push pointer to dest file descriptor.
+		_push kernel_sConfigName
+		_sfLocalPtr(push, VFS_FILE_OFFSET_LASTMEMBER)   ; Push pointer to parent directory file descriptor.
+		call vfs_fOpenFile
+		add sp, 3
+		
+		ife a, 0
+			jmp kernel_emulateConfig_end
+			
+	kernel_emulateConfig_readBuffer:
+		_push 4
+		_push kernel_emulate_readBuffer
+		_sfLocalPtr(push, VFS_FILE_OFFSET_LASTMEMBER + VFS_FILE_SIZE)
+		call vfs_fRead
+		add sp, 3
+		
+		ife a, 0
+			jmp kernel_emulateConfig_end
+		
+		_push a
+		_push kernel_emulate_readBuffer
+		_push kernel_emulate_readBuffer_wide
+		call string_singlebyteToWideChar		
+		add sp, 2
+		
+		;Length is already on the stack
+		_push kernel_emulate_readBuffer_wide
+		call kernel_emulateInput
+		add sp, 2
+		
+		jmp kernel_emulateConfig_readBuffer
+		
+	kernel_emulateConfig_end:
+	_sfEnd
+	ret
+		
 #segment KERNEL_END 1100
 
 ;;

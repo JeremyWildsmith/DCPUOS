@@ -521,8 +521,10 @@ main:
 	JSR [A + import_memory_allocateMemory]
 	ADD SP, 1
 
+	
 	_loadBase(y)
 	_push y
+	add [sp], atmos_image_header
 	SET PUSH, input_handler
 	ADD [SP], Y
 	SET [Y + shell_instance], A
@@ -609,10 +611,12 @@ writeResponseLine:
 	
 ;;A Will be set to base address of callee module
 input_handler:
+	_loadBase(a)
+	
 	_push a
 	_push [sp + 2]
 	_push [a + shell_instance]
-	JSR [a + import_shell_processInput]
+	callRelPtr import_shell_processInput
 	add sp, 3
 	
 	ife a, 0

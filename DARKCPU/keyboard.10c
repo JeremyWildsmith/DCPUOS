@@ -41,6 +41,15 @@ keyboard_interrupt:
 	_pop ex
 	rfi a
 	
+;Arg1 is key to emulate
+keyboard_emulate:
+	set c, [sp + 1]
+
+	_push c
+	JSR userInterfaceState_issueInput
+	ADD SP, 1
+
+	ret
 	
 keyboard_poll:
 	keyboard_poll_start:

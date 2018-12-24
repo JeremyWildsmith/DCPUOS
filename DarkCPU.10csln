@@ -16,5 +16,6 @@
     <project path="firmware\firmware.10cproj" />
     <project path="stnacs\stnacs.10cproj" />
     <project path="nic\nic.10cproj" />
+    <project path="initrddisk\initrddisk.10cproj" />
   </projects>
 </solution>

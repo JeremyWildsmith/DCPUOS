@@ -172,24 +172,29 @@ string_singlebyteToWideChar:
 ;ARG3 is char to replace it with
 ;Return number of replaces
 string_replace:
+	_push i
+	_push j
+	
 	XOR A, A
 	xor i, i
 	
 	string_replace_loop:
-		SET C, [SP+1] ;arg1
+		SET C, [SP+3] ;arg1
 		ADD C, A
 		
 		IFE [C], 0
 			SET PC, string_replace_loop_end
 		
-		IFE [C], [SP+2] ;arg2
-			sti [C], [SP+3] ;arg3
+		IFE [C], [SP+4] ;arg2
+			sti [C], [SP+5] ;arg3
 		
 		ADD A, 1
 		SET PC, string_replace_loop
 	string_replace_loop_end:
 	
 	set a, i
+	_pop j
+	_pop i
 	SET PC, POP
 	
 ;cdecl, gets length of string.
