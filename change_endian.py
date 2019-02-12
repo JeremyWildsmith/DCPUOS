@@ -8,4 +8,7 @@ with open('.\\DARKCPU\\DARKCPU.bin', 'rb') as inputFile:
             
             outputFile.write(bufB)
             outputFile.write(bufA)
+
+
+print("Done")
             
